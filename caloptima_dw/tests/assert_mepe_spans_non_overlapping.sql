@@ -7,8 +7,8 @@ SELECT
     a.SPAN_TERM_DT  AS span_a_term,
     b.SPAN_EFF_DT   AS span_b_eff,
     b.SPAN_TERM_DT  AS span_b_term
-FROM {{ ref('silver_eligibility') }} a
-JOIN {{ ref('silver_eligibility') }} b
+FROM {{ ref('eligibility') }} a
+JOIN {{ ref('eligibility') }} b
     ON  a.MEME_ID        = b.MEME_ID
     AND a.MEPE_PLAN_TYPE = b.MEPE_PLAN_TYPE
     AND a.SPAN_EFF_DT   != b.SPAN_EFF_DT

@@ -1,7 +1,7 @@
 version: 2
 
 models:
-  - name: silver_provider
+  - name: provider
     description: >
       Deduplicated provider master (1 row per NPI). Incremental merge keyed on PRPR_ID.
       Source: int_prpr_org_hierarchy WHERE IS_DUPLICATE = FALSE.
@@ -21,7 +21,7 @@ models:
       - name: SILVER_LOADED_AT
         tests: [not_null]
 
-  - name: silver_member
+  - name: member
     description: >
       Deduplicated member master (1 row per MEME_ID) enriched with subscriber,
       current PCP, and Medi-Cal attributes. Incremental merge keyed on MEME_ID.
@@ -35,9 +35,9 @@ models:
       - name: SILVER_LOADED_AT
         tests: [not_null]
 
-  - name: silver_eligibility
+  - name: eligibility
     description: >
-      Non-overlapping eligibility spans per member × plan type.
+      Non-overlapping eligibility spans per member x plan type.
       Incremental re-evaluates all spans for members updated since last run.
     columns:
       - name: MEME_ID

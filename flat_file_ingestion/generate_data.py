@@ -265,6 +265,16 @@ with open(out_bad, "w", newline="") as f:
             w.writerow(row)
 
 print(f"Wrote {out_bad}  (5,000 rows, 5 load-breaking records)")
+
+# ── Generate pharmacy_claims_pipe1.csv and pipe2.csv (1,000 rows each) ────────
+for pipe_num, seed_offset in [(1, 50000), (2, 51000)]:
+    out_pipe = DATA_DIR / f"pharmacy_claims_pipe{pipe_num}.csv"
+    with open(out_pipe, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=PHARMACY_FIELDS)
+        w.writeheader()
+        for i in range(1, 1001):
+            w.writerow(make_pharmacy_row(i + seed_offset))
+    print(f"Wrote {out_pipe}  (1,000 rows)")
 print()
 print("Bad record summary (each causes COPY INTO to reject the row):")
 labels = {

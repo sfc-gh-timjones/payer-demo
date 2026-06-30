@@ -8,7 +8,6 @@ facets_demo/
 caloptima_dw/target/
 caloptima_dw/dbt_packages/
 caloptima_dw/logs/
-caloptima_dw/profiles.yml
 
 # OS / editor noise
 .DS_Store

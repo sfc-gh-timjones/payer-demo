@@ -1,0 +1,30 @@
+caloptima_dw:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: sfsenorthamerica-tim_jones_demo
+      user: COCO
+      role: ACCOUNTADMIN
+      database: FACETS_DEV
+      warehouse: WH_XS
+      schema: SILVER
+      threads: 4
+    qa:
+      type: snowflake
+      account: sfsenorthamerica-tim_jones_demo
+      user: COCO
+      role: ACCOUNTADMIN
+      database: FACETS_QA
+      warehouse: WH_XS
+      schema: SILVER
+      threads: 4
+    prod:
+      type: snowflake
+      account: sfsenorthamerica-tim_jones_demo
+      user: COCO
+      role: ACCOUNTADMIN
+      database: FACETS_PROD
+      warehouse: WH_XS
+      schema: SILVER
+      threads: 4

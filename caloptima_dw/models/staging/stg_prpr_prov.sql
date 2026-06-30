@@ -32,7 +32,7 @@ SELECT
     END                                                              AS CONTRACT_TYPE,
     PRPR_TAXONOMY_CD,
     PRPR_TERM_DT                                                     AS TERM_DT,
-    TRY_HEX_ENCODE(ROW_HASH_VALUE)                                   AS ROW_HASH_HEX,
+    TO_VARCHAR(ROW_HASH_VALUE)                                       AS ROW_HASH_HEX,
     SYS_USUS_ID,
     SYS_LAST_UPD_DTM,
     _SNOWFLAKE_INSERTED_AT,

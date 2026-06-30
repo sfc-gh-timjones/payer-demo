@@ -4,7 +4,7 @@ caloptima_dw:
     dev:
       type: snowflake
       account: sfsenorthamerica-tim_jones_demo
-      user: COCO
+      user: ADMIN
       role: ACCOUNTADMIN
       database: FACETS_DEV
       warehouse: WH_XS
@@ -13,7 +13,7 @@ caloptima_dw:
     qa:
       type: snowflake
       account: sfsenorthamerica-tim_jones_demo
-      user: COCO
+      user: ADMIN
       role: ACCOUNTADMIN
       database: FACETS_QA
       warehouse: WH_XS
@@ -22,7 +22,7 @@ caloptima_dw:
     prod:
       type: snowflake
       account: sfsenorthamerica-tim_jones_demo
-      user: COCO
+      user: ADMIN
       role: ACCOUNTADMIN
       database: FACETS_PROD
       warehouse: WH_XS

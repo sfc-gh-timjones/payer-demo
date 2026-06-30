@@ -3,6 +3,7 @@ WITH source AS (
     WHERE {{ active_records() }}
 )
 SELECT
+    PRER_ID,
     PRPR_ID,
     PRER_PRPR_ID,
     PRER_EFF_DT,
@@ -11,12 +12,7 @@ SELECT
         WHEN PRER_TERM_DT IS NULL OR PRER_TERM_DT >= CURRENT_DATE
         THEN TRUE ELSE FALSE
     END                             AS IS_ACTIVE_LINK,
-    PRER_STS,
-    CASE PRER_STS
-        WHEN 'AC' THEN 'Active'
-        WHEN 'IN' THEN 'Inactive'
-        ELSE PRER_STS
-    END                             AS STATUS_DESC,
+    PRER_PRPR_ENTITY,
     SYS_LAST_UPD_DTM,
     _SNOWFLAKE_UPDATED_AT           AS updated_at
 FROM source

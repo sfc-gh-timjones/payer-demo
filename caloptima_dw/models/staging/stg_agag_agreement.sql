@@ -4,8 +4,7 @@ WITH source AS (
 )
 SELECT
     AGAG_ID,
-    PRPR_ID,
-    NWNW_ID,
+    AGAG_DESC,
     AGAG_EFF_DT,
     AGAG_TERM_DT,
     CASE
@@ -19,12 +18,6 @@ SELECT
         WHEN 'PER_DIEM' THEN 'Per Diem'
         ELSE AGAG_MCTR_TYPE
     END                             AS CONTRACT_TYPE_DESC,
-    AGAG_STS,
-    CASE AGAG_STS
-        WHEN 'AC' THEN 'Active'
-        WHEN 'IN' THEN 'Inactive'
-        ELSE AGAG_STS
-    END                             AS STATUS_DESC,
     SYS_LAST_UPD_DTM,
     _SNOWFLAKE_UPDATED_AT           AS updated_at
 FROM source

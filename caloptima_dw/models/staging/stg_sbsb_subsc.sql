@@ -22,9 +22,6 @@ SELECT
         ELSE SBSB_STS
     END                             AS STATUS_DESC,
     SBSB_MCTR_TYPE,
-    SBSB_GRP_ID,
-    SBSB_EFF_DT,
-    SBSB_TERM_DT,
     SYS_LAST_UPD_DTM,
     _SNOWFLAKE_UPDATED_AT           AS updated_at
 FROM source

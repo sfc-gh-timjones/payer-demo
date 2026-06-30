@@ -3,6 +3,7 @@ WITH source AS (
     WHERE {{ active_records() }}
 )
 SELECT
+    PRNP_ID,
     PRPR_ID,
     PRNP_NPI,
     CASE
@@ -16,7 +17,6 @@ SELECT
         ELSE PRNP_NPI_TYPE
     END                             AS NPI_TYPE_DESC,
     PRNP_EFF_DT,
-    PRNP_TERM_DT,
     SYS_LAST_UPD_DTM,
     _SNOWFLAKE_UPDATED_AT           AS updated_at
 FROM source

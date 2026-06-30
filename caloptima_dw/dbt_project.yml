@@ -8,17 +8,10 @@ test-paths: ["tests"]
 macro-paths: ["macros"]
 analysis-paths: ["analysis"]
 
-vars:
-  target_database: FACETS_DEV
-  silver_schema: SILVER
-  bronze_database: FACETS_BRONZE
-  bronze_schema: RAW
-
 models:
   caloptima_dw:
     staging:
       +materialized: view
-      +database: "{{ var('target_database') }}"
       +schema: STAGING
     intermediate:
       +materialized: ephemeral
@@ -26,9 +19,7 @@ models:
       +materialized: incremental
       +incremental_strategy: merge
       +on_schema_change: sync_all_columns
-      +database: "{{ var('target_database') }}"
-      +schema: "{{ var('silver_schema') }}"
+      +schema: SILVER
     marts:
       +materialized: table
-      +database: "{{ var('target_database') }}"
-      +schema: "{{ var('silver_schema') }}"
+      +schema: SILVER

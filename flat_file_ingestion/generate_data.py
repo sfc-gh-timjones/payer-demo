@@ -232,19 +232,21 @@ with open(out_xml, "w", encoding="utf-8") as f:
 print(f"Wrote {out_xml}  (20,000 claims)")
 
 # ── Generate pharmacy_claims_bad_records.csv (5,000 rows, 5 bad) ─────────────
-# Bad records scattered at rows 312, 891, 1547, 2983, 4201:
-#   312  — MEMBER_ID empty (missing required field)
-#   891  — DRUG_NDC malformed (fails format validation)
-#   1547 — BILLED_AMOUNT negative (fails business rule)
-#   2983 — FILL_DATE in the future (fails date validation)
-#   4201 — PRESCRIBER_NPI only 5 digits (fails NPI length check)
+# These records cause COPY INTO to fail — type cast errors Snowflake cannot
+# coerce when loading into a typed table:
+#   312  — DAYS_SUPPLY='THIRTY-DAYS'  → cannot cast VARCHAR to NUMBER
+#   891  — BILLED_AMOUNT='N/A'        → cannot cast VARCHAR to FLOAT/NUMBER
+#   1547 — QUANTITY_DISPENSED='MANY'  → cannot cast VARCHAR to NUMBER
+#   2983 — FORMULARY_TIER='GOLD'      → cannot cast VARCHAR to NUMBER
+#   4201 — extra field (21 columns)   → column count mismatch, row rejected
 BAD_OVERRIDES = {
-    312:  {"MEMBER_ID":      ""},
-    891:  {"DRUG_NDC":       "INVALID-NDC"},
-    1547: {"BILLED_AMOUNT":  "-150.00"},
-    2983: {"FILL_DATE":      "2027-03-15"},
-    4201: {"PRESCRIBER_NPI": "12345"},
+    312:  {"DAYS_SUPPLY":         "THIRTY-DAYS"},
+    891:  {"BILLED_AMOUNT":       "N/A"},
+    1547: {"QUANTITY_DISPENSED":  "MANY"},
+    2983: {"FORMULARY_TIER":      "GOLD"},
+    # row 4201 gets an extra field injected via raw write below
 }
+EXTRA_FIELD_ROW = 4201
 
 out_bad = DATA_DIR / "pharmacy_claims_bad_records.csv"
 with open(out_bad, "w", newline="") as f:
@@ -254,17 +256,23 @@ with open(out_bad, "w", newline="") as f:
         row = make_pharmacy_row(i + 25000)   # offset so IDs don't collide
         if i in BAD_OVERRIDES:
             row.update(BAD_OVERRIDES[i])
-        w.writerow(row)
+        if i == EXTRA_FIELD_ROW:
+            # Write raw line with an extra trailing field — column count mismatch
+            values = [str(row[col]) for col in PHARMACY_FIELDS]
+            values.append("EXTRA_FIELD")   # 21st column
+            f.write(",".join(values) + "\n")
+        else:
+            w.writerow(row)
 
-print(f"Wrote {out_bad}  (5,000 rows, 5 bad records)")
+print(f"Wrote {out_bad}  (5,000 rows, 5 load-breaking records)")
 print()
-print("Bad record summary:")
+print("Bad record summary (each causes COPY INTO to reject the row):")
 labels = {
-    312:  "MISSING_MEMBER_ID       — MEMBER_ID is empty",
-    891:  "INVALID_NDC_FORMAT      — DRUG_NDC='INVALID-NDC'",
-    1547: "NEGATIVE_BILLED_AMOUNT  — BILLED_AMOUNT='-150.00'",
-    2983: "FUTURE_FILL_DATE        — FILL_DATE='2027-03-15'",
-    4201: "INVALID_NPI_LENGTH      — PRESCRIBER_NPI='12345' (5 digits, not 10)",
+    312:  "NUMERIC_CAST_FAIL  — DAYS_SUPPLY='THIRTY-DAYS' (VARCHAR in NUMBER column)",
+    891:  "NUMERIC_CAST_FAIL  — BILLED_AMOUNT='N/A' (VARCHAR in FLOAT column)",
+    1547: "NUMERIC_CAST_FAIL  — QUANTITY_DISPENSED='MANY' (VARCHAR in NUMBER column)",
+    2983: "NUMERIC_CAST_FAIL  — FORMULARY_TIER='GOLD' (VARCHAR in NUMBER column)",
+    4201: "COLUMN_COUNT_MISMATCH — 21 fields instead of 20 (extra trailing field)",
 }
 for row_num, desc in labels.items():
     print(f"  Row {row_num:5d}: {desc}")

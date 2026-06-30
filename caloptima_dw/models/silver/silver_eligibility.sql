@@ -19,13 +19,8 @@ SELECT
     END                                     AS IS_ACTIVE,
     CURRENT_TIMESTAMP()                     AS SILVER_LOADED_AT
 FROM {{ ref('int_mepe_span_normalize') }} e
-QUALIFY ROW_NUMBER() OVER (
-    PARTITION BY e.MEME_ID, e.MEPE_PLAN_TYPE, e.SPAN_EFF_DT
-    ORDER BY e.SOURCE_SPAN_COUNT DESC
-) = 1
 {% if is_incremental() %}
 WHERE e.MEME_ID IN (
-    -- Re-evaluate all spans for members that had any update since last run
     SELECT DISTINCT MEME_ID
     FROM {{ source('raw', 'CMC_MEPE_PRCS_ELIG') }}
     WHERE _SNOWFLAKE_UPDATED_AT > (
@@ -34,3 +29,7 @@ WHERE e.MEME_ID IN (
     )
 )
 {% endif %}
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY e.MEME_ID, e.MEPE_PLAN_TYPE, e.SPAN_EFF_DT
+    ORDER BY e.SOURCE_SPAN_COUNT DESC
+) = 1

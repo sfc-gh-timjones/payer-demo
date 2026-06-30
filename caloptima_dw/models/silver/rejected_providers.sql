@@ -1,13 +1,7 @@
-{{ config(
-    materialized='incremental',
-    unique_key='PRPR_ID',
-    incremental_strategy='merge',
-    on_schema_change='sync_all_columns'
-) }}
+{{ config(materialized='table') }}
 
--- Providers rejected from Silver due to invalid or missing NPI.
--- When NPI is corrected in Facets, the next dbt run removes the row from here
--- and the provider flows to SILVER.PROVIDER via int_prpr_dedup.
+-- Rebuilt from scratch on every run so that rows disappear automatically
+-- when a provider's NPI is corrected in the source system.
 SELECT
     PRPR_ID,
     PRPR_NPI,
@@ -24,9 +18,3 @@ SELECT
 FROM {{ source('raw', 'CMC_PRPR_PROV') }}
 WHERE _SNOWFLAKE_DELETED = FALSE
   AND (PRPR_NPI IS NULL OR NOT (PRPR_NPI REGEXP '^[0-9]{10}$'))
-{% if is_incremental() %}
-  AND _SNOWFLAKE_UPDATED_AT > (
-      SELECT COALESCE(MAX(BRONZE_UPDATED_AT), '1900-01-01'::TIMESTAMP_NTZ)
-      FROM {{ this }}
-  )
-{% endif %}

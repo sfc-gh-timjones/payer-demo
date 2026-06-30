@@ -1,7 +1,9 @@
--- Singular test: no member should have more than one active PCP in Silver.
--- Returns rows if the test FAILS (dbt convention: test passes when query returns 0 rows).
+-- Singular test: no member should have more than one active PCP assignment
+-- BEFORE resolution by int_meme_pcp_current.
+-- silver.member already has one row per MEME_ID so testing there is a no-op.
+-- Returns rows if the test FAILS (dbt convention: passes when query returns 0 rows).
 SELECT MEME_ID, COUNT(*) AS active_pcp_count
-FROM {{ ref('member') }}
-WHERE ACTIVE_PCP_PRPR_ID IS NOT NULL
+FROM {{ ref('stg_mepr_prim_prov') }}
+WHERE IS_ACTIVE_PCP = TRUE
 GROUP BY MEME_ID
 HAVING COUNT(*) > 1

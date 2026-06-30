@@ -86,9 +86,10 @@ models:
 
   - name: rejected_providers
     description: >
-      Providers rejected from Silver due to invalid NPI (null or non-10-digit).
-      REJECTION_RULE: NPI_NULL or NPI_INVALID. When NPI is corrected in source,
-      the next dbt run removes the row from here and promotes it to provider.
+      Providers rejected from Silver due to invalid or missing NPI.
+      Rebuilt as a full table on every run — rows disappear automatically
+      when NPI is corrected in the source system.
+      REJECTION_RULE: NPI_NULL or NPI_INVALID.
     columns:
       - name: PRPR_ID
         tests: [not_null, unique]

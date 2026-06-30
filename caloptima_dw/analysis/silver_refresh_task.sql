@@ -9,8 +9,7 @@ CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.SILVER_REFRESH_PROD
 AS
     EXECUTE DBT PROJECT CALOPTIMA_DW_PROD
         USING (
-            VARS     => '{"target_database":"FACETS_PROD","silver_schema":"SILVER"}',
-            SELECT   => 'silver_provider,silver_member,silver_eligibility,dup_metrics,dq_row_counts'
+            SELECT => 'provider,member,eligibility,rejected_providers,dup_metrics,dq_row_counts'
         );
 
 -- Resume after creation:

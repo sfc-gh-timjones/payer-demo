@@ -3,18 +3,36 @@ version: 2
 models:
   - name: provider
     description: >
-      Deduplicated provider master (1 row per NPI). Incremental merge keyed on PRPR_ID.
-      Source: int_prpr_org_hierarchy WHERE IS_DUPLICATE = FALSE.
+      Type 2 SCD provider history. One row per provider version — a new row is
+      inserted whenever PRPR_STS or any Bronze attribute changes. Query with
+      IS_CURRENT = TRUE for the current state of all providers.
+      Unique key: PROVIDER_SK (surrogate = MD5(PRPR_ID | EFFECTIVE_FROM)).
     columns:
+      - name: PROVIDER_SK
+        description: "Surrogate key: MD5(PRPR_ID || '|' || EFFECTIVE_FROM). Unique per version."
+        tests: [not_null, unique]
       - name: PRPR_ID
-        tests: [not_null, unique]
+        description: "Natural key from Facets. Multiple rows per PRPR_ID when history exists."
+        tests:
+          - not_null
+          - relationships:
+              to: source('raw', 'CMC_PRPR_PROV')
+              field: PRPR_ID
       - name: PRPR_NPI
-        tests: [not_null, unique]
+        tests: [not_null]
       - name: PROVIDER_TYPE
         tests:
           - accepted_values:
               values: ['Individual (Type 1)', 'Organization (Type 2)', 'Unknown']
       - name: IS_PCP_ELIGIBLE
+        tests: [not_null]
+      - name: EFFECTIVE_FROM
+        description: "Timestamp when this version became active (= BRONZE_UPDATED_AT at insert time)."
+        tests: [not_null]
+      - name: EFFECTIVE_TO
+        description: "Timestamp when this version was superseded. NULL = currently active."
+      - name: IS_CURRENT
+        description: "TRUE for the live version of each provider."
         tests: [not_null]
       - name: BRONZE_UPDATED_AT
         tests: [not_null]
@@ -29,7 +47,16 @@ models:
       - name: MEME_ID
         tests: [not_null, unique]
       - name: SBSB_ID
-        tests: [not_null]
+        tests:
+          - not_null
+          - relationships:
+              to: source('raw', 'CMC_SBSB_SUBSC')
+              field: SBSB_ID
+      - name: ACTIVE_PCP_PRPR_ID
+        tests:
+          - relationships:
+              to: source('raw', 'CMC_PRPR_PROV')
+              field: PRPR_ID
       - name: BRONZE_UPDATED_AT
         tests: [not_null]
       - name: SILVER_LOADED_AT
@@ -41,7 +68,11 @@ models:
       Incremental re-evaluates all spans for members updated since last run.
     columns:
       - name: MEME_ID
-        tests: [not_null]
+        tests:
+          - not_null
+          - relationships:
+              to: source('raw', 'CMC_MEME_MEMBER')
+              field: MEME_ID
       - name: MEPE_PLAN_TYPE
         tests: [not_null]
       - name: SPAN_EFF_DT
@@ -51,4 +82,20 @@ models:
       - name: SILVER_LOADED_AT
         tests: [not_null]
       - name: HAD_OVERLAP
+        tests: [not_null]
+
+  - name: rejected_providers
+    description: >
+      Providers rejected from Silver due to invalid NPI (null or non-10-digit).
+      REJECTION_RULE: NPI_NULL or NPI_INVALID. When NPI is corrected in source,
+      the next dbt run removes the row from here and promotes it to provider.
+    columns:
+      - name: PRPR_ID
+        tests: [not_null, unique]
+      - name: REJECTION_RULE
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['NPI_NULL', 'NPI_INVALID']
+      - name: QUARANTINE_DTM
         tests: [not_null]

@@ -1,0 +1,85 @@
+version: 2
+
+models:
+  - name: int_prpr_dedup
+    description: >
+      Provider records ranked by NPI. IS_DUPLICATE=FALSE rows are the canonical
+      record per NPI, chosen by most-recent SYS_LAST_UPD_DTM. Only valid NPIs included.
+    columns:
+      - name: PRPR_ID
+        tests: [not_null]
+      - name: IS_DUPLICATE
+        tests: [not_null]
+      - name: DUPLICATE_COUNT
+        description: "Number of duplicate rows beyond this one for the same NPI."
+        tests: [not_null]
+
+  - name: int_prpr_with_address
+    description: "Provider dedup + primary practice address (addr_rank=1)."
+    columns:
+      - name: PRPR_ID
+        tests: [not_null]
+
+  - name: int_prpr_network_summary
+    description: "Provider + address + network count + contract types aggregated."
+    columns:
+      - name: PRPR_ID
+        tests: [not_null]
+      - name: ACTIVE_NETWORK_COUNT
+        tests: [not_null]
+
+  - name: int_prpr_org_hierarchy
+    description: >
+      Provider + network summary + parent org link via CMC_PRER_RELATION.
+      PARENT_ORG_PRPR_ID is null for standalone individual providers and all orgs.
+    columns:
+      - name: PRPR_ID
+        tests: [not_null]
+
+  - name: int_meme_dedup
+    description: >
+      Member records ranked by DEMO_KEY. IS_DUPLICATE=FALSE = canonical member.
+      DEMO_KEY = MD5(SBSB_ID|DOB|SEX|UPPER(LAST)|UPPER(FIRST)).
+    columns:
+      - name: MEME_ID
+        tests: [not_null]
+      - name: IS_DUPLICATE
+        tests: [not_null]
+
+  - name: int_meme_with_subscriber
+    description: "Deduplicated members joined to their subscriber (CMC_SBSB_SUBSC)."
+    columns:
+      - name: MEME_ID
+        tests: [not_null]
+      - name: SBSB_ID
+        tests: [not_null]
+
+  - name: int_meme_pcp_current
+    description: >
+      One row per member: their single current PCP (MEPR_TERM_DT IS NULL, latest EFF_DT).
+      Members with no active PCP assignment are excluded.
+    columns:
+      - name: MEME_ID
+        tests: [not_null, unique]
+      - name: ACTIVE_PCP_PRPR_ID
+        tests: [not_null]
+
+  - name: int_meme_medicaid
+    description: "Most-recent active Medi-Cal record per member."
+    columns:
+      - name: MEME_ID
+        tests: [not_null, unique]
+
+  - name: int_mepe_span_normalize
+    description: >
+      Overlapping eligibility spans collapsed into non-overlapping groups.
+      HAD_OVERLAP=TRUE flags members with data quality issues in Bronze.
+    columns:
+      - name: MEME_ID
+        tests: [not_null]
+      - name: MEPE_PLAN_TYPE
+        tests: [not_null]
+      - name: SPAN_EFF_DT
+        tests: [not_null]
+      - name: HAD_OVERLAP
+        tests: [not_null]

@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: silver_provider
+    description: >
+      Deduplicated provider master (1 row per NPI). Incremental merge keyed on PRPR_ID.
+      Source: int_prpr_org_hierarchy WHERE IS_DUPLICATE = FALSE.
+    columns:
+      - name: PRPR_ID
+        tests: [not_null, unique]
+      - name: PRPR_NPI
+        tests: [not_null, unique]
+      - name: PROVIDER_TYPE
+        tests:
+          - accepted_values:
+              values: ['Individual (Type 1)', 'Organization (Type 2)', 'Unknown']
+      - name: IS_PCP_ELIGIBLE
+        tests: [not_null]
+      - name: BRONZE_UPDATED_AT
+        tests: [not_null]
+      - name: SILVER_LOADED_AT
+        tests: [not_null]
+
+  - name: silver_member
+    description: >
+      Deduplicated member master (1 row per MEME_ID) enriched with subscriber,
+      current PCP, and Medi-Cal attributes. Incremental merge keyed on MEME_ID.
+    columns:
+      - name: MEME_ID
+        tests: [not_null, unique]
+      - name: SBSB_ID
+        tests: [not_null]
+      - name: BRONZE_UPDATED_AT
+        tests: [not_null]
+      - name: SILVER_LOADED_AT
+        tests: [not_null]
+
+  - name: silver_eligibility
+    description: >
+      Non-overlapping eligibility spans per member × plan type.
+      Incremental re-evaluates all spans for members updated since last run.
+    columns:
+      - name: MEME_ID
+        tests: [not_null]
+      - name: MEPE_PLAN_TYPE
+        tests: [not_null]
+      - name: SPAN_EFF_DT
+        tests: [not_null]
+      - name: IS_ACTIVE
+        tests: [not_null]
+      - name: SILVER_LOADED_AT
+        tests: [not_null]
+      - name: HAD_OVERLAP
+        tests: [not_null]

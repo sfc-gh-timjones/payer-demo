@@ -1,0 +1,121 @@
+version: 2
+
+sources:
+  - name: raw
+    database: FACETS_BRONZE
+    schema: RAW
+    loaded_at_field: _SNOWFLAKE_UPDATED_AT
+    freshness:
+      warn_after: {count: 60, period: minute}
+      error_after: {count: 120, period: minute}
+    tables:
+      # ── Networks & Agreements ──────────────────────────────────────────────
+      - name: CMC_NWNW_NETWORK
+        description: "Network definitions. NWNW_ID links to provider and member participation."
+
+      - name: CMC_AGAG_AGREEMENT
+        description: "Provider contracts and agreements. AGAG_MCTR_TYPE: FFS=Fee for Service, CAP=Capitation, PER_DIEM=Per Diem."
+
+      # ── Coverage Structure ─────────────────────────────────────────────────
+      - name: CMC_CSCS_CLASS
+        description: "Coverage class definitions. Groups plans into product lines."
+
+      - name: CMC_CSPI_CS_PLAN
+        description: "Plan definitions within a coverage class. CSPI_ID is the plan identifier."
+
+      # ── Providers ─────────────────────────────────────────────────────────
+      - name: CMC_PRPR_PROV
+        description: "Core provider record. PRPR_ENTITY: I=Individual (Type 1 NPI), O=Organization (Type 2 NPI)."
+
+      - name: CMC_PRAD_ADDRESS
+        description: "Provider addresses. PRAD_TYPE: PR=Primary practice address, RM=Remit address."
+
+      - name: CMC_PRER_RELATION
+        description: "Individual-to-organization links. Ties individual providers to their group practice."
+
+      - name: CMC_PRFA_FACILITY
+        description: "Facility-level attributes for provider organizations (bed counts, accreditation)."
+
+      - name: CMC_PRAF_FAC_AFFIL
+        description: "Provider-to-facility affiliations (hospital privileges, etc.)."
+
+      - name: CMC_NWPR_RELATION
+        description: "Provider network participation. Links providers to networks and agreements."
+
+      - name: CMC_PRCR_CREDEN
+        description: "Provider credentialing records. Stores credentialing status and cycle dates."
+
+      - name: CMC_PRCF_CERT
+        description: "Provider certifications (board certifications, licenses)."
+
+      - name: CMC_PRRG_REG
+        description: "Provider registration/DEA and state license numbers."
+
+      - name: CMC_PRDS_DATE
+        description: "Provider effective and termination dates per product line."
+
+      - name: CMC_PRCP_COMM_PRAC
+        description: "Community practice attributes — FQHC, RHC, safety-net flags."
+
+      - name: CMC_PRNP_NPI
+        description: "NPI cross-reference. PRNP_NPI_TYPE: 1=Individual, 2=Organization."
+
+      - name: CMC_PRLA_LANG
+        description: "Provider spoken languages for member-provider matching."
+
+      - name: CMC_PRHI_HIST
+        description: "Provider change history audit trail."
+
+      - name: CMC_PROF_OFF_HRS
+        description: "Provider office hours by day of week."
+
+      - name: CMC_PRWM_PR_MSG
+        description: "Provider-level notes and free-text messages."
+
+      # ── Subscribers ───────────────────────────────────────────────────────
+      - name: CMC_SBSB_SUBSC
+        description: "Subscriber (policyholder) demographics and enrollment status."
+
+      - name: CMC_SBCS_CLASS
+        description: "Subscriber coverage class assignment."
+
+      - name: CMC_SBEL_ELIG_ENT
+        description: "Subscriber eligibility entry — the parent record for member spans."
+
+      # ── Members ───────────────────────────────────────────────────────────
+      - name: CMC_MEME_MEMBER
+        description: "Member records. MEME_REL_CD: 01=Subscriber, 02=Spouse, 03=Child, 04=Other."
+
+      - name: CMC_MEDD_DEM_DATA
+        description: "Member demographic extension (race, ethnicity, language)."
+
+      - name: CMC_MECR_NO_XREF
+        description: "Member CIN/BIC cross-reference for Medi-Cal."
+
+      - name: CMC_MEPR_PRIM_PROV
+        description: "PCP assignments per member. MEPR_TERM_DT IS NULL = currently active assignment."
+
+      - name: CMC_MECB_COB
+        description: "Coordination of Benefits — other coverage for a member."
+
+      - name: CMC_MERP_RELATION
+        description: "Member relationship to subscriber (alternate relationship coding)."
+
+      - name: CMC_MEIA_ID_ACT
+        description: "Member ID activity — Medi-Cal/CMS ID assignments and history."
+
+      - name: CMC_MCTR_CD_TRANS
+        description: "Code translation table. Maps Facets 2-char codes to descriptions."
+
+      # ── Eligibility ───────────────────────────────────────────────────────
+      - name: CMC_MEPE_PRCS_ELIG
+        description: "Eligibility spans per member and plan. MEPE_PLAN_TYPE: HMO/PPO/MEDICAID/DSNP."
+
+      - name: CMC_MEES_EXCHANGE
+        description: "Covered California (ACA marketplace) eligibility attributes."
+
+      - name: CMC_MECD_MEDICAID
+        description: "Medi-Cal aid code and BIC per member."
+
+      - name: CMC_MESU_SUBSIDY
+        description: "APTC subsidy and premium amounts per member (ACA/Covered CA)."

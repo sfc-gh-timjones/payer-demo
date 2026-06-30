@@ -1,10 +1,16 @@
 -- Collapses overlapping eligibility spans into non-overlapping normalized spans.
+-- Uses ROW_NUMBER to distinguish "first row" from "previous row had no term date"
+-- so open-ended spans (TERM_DT IS NULL) don't incorrectly trigger a new group.
 WITH spans AS (
     SELECT *,
+        ROW_NUMBER() OVER (
+            PARTITION BY MEME_ID, MEPE_PLAN_TYPE
+            ORDER BY MEPE_EFF_DT, MEPE_ID
+        )                               AS rn,
         LAG(MEPE_TERM_DT) OVER (
             PARTITION BY MEME_ID, MEPE_PLAN_TYPE
-            ORDER BY MEPE_EFF_DT
-        ) AS prev_term_dt
+            ORDER BY MEPE_EFF_DT, MEPE_ID
+        )                               AS prev_term_dt
     FROM {{ ref('stg_mepe_prcs_elig') }}
     WHERE MEPE_STS = 'AC'
 ),
@@ -12,12 +18,13 @@ grouped AS (
     SELECT *,
         SUM(
             CASE
-                WHEN prev_term_dt IS NULL OR MEPE_EFF_DT > prev_term_dt
-                THEN 1 ELSE 0
+                WHEN rn = 1                                                    THEN 1
+                WHEN prev_term_dt IS NOT NULL AND MEPE_EFF_DT > prev_term_dt  THEN 1
+                ELSE 0
             END
         ) OVER (
             PARTITION BY MEME_ID, MEPE_PLAN_TYPE
-            ORDER BY MEPE_EFF_DT
+            ORDER BY MEPE_EFF_DT, MEPE_ID
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS span_group
     FROM spans

@@ -40,7 +40,8 @@ WITH telemetry AS (
     SELECT
         RECORD_ATTRIBUTES:"source.table.name"::VARCHAR                  AS table_name,
         MAX(CASE WHEN RECORD:"metric"."name"::VARCHAR = 'db.last.ingestion.time'
-                 THEN TO_TIMESTAMP(VALUE::BIGINT / 1000) END)           AS last_ingestion_time,
+                 THEN CONVERT_TIMEZONE('UTC', 'America/Denver',
+                      TO_TIMESTAMP_NTZ(VALUE::BIGINT / 1000)) END)      AS last_ingestion_mtn,
         MAX(CASE WHEN RECORD:"metric"."name"::VARCHAR = 'db.table.status'
                  THEN VALUE::INTEGER END)                               AS status_code
     FROM OPENFLOW.TELEMETRY.EVENTS
@@ -58,8 +59,9 @@ row_counts AS (
 )
 SELECT
     t.table_name,
-    t.last_ingestion_time,
-    DATEDIFF('minute', t.last_ingestion_time, CURRENT_TIMESTAMP()) AS mins_since_ingest,
+    t.last_ingestion_mtn,
+    DATEDIFF('minute', t.last_ingestion_mtn,
+             CONVERT_TIMEZONE('America/Denver', CURRENT_TIMESTAMP()))    AS mins_since_ingest,
     CASE t.status_code
         WHEN 3 THEN '🟢 Active'
         WHEN 2 THEN '🟡 Snapshot'
@@ -70,14 +72,14 @@ SELECT
     r.LAST_ALTERED                                                  AS last_altered
 FROM telemetry t
 LEFT JOIN row_counts r ON r.TABLE_NAME = t.table_name
-ORDER BY t.last_ingestion_time DESC
+ORDER BY t.last_ingestion_mtn DESC
 """
 table_df = q(table_sql)
 
 # ── 2. CDC throughput over time ───────────────────────────────────────────────
 cdc_sql = f"""
 SELECT
-    DATE_TRUNC('hour', TIMESTAMP)                                    AS hour,
+    DATE_TRUNC('hour', CONVERT_TIMEZONE('America/Denver', TIMESTAMP))    AS hour,
     SUM(CASE WHEN RECORD_ATTRIBUTES:"counter"::VARCHAR = 'DML Events Processed'
              THEN VALUE::FLOAT ELSE 0 END)                           AS dml_events,
     SUM(CASE WHEN RECORD_ATTRIBUTES:"counter"::VARCHAR = 'Rows Sent'
@@ -101,7 +103,7 @@ cdc_df = q(cdc_sql)
 # ── KPI tiles ─────────────────────────────────────────────────────────────────
 active_tables = len(table_df[table_df["STATUS"] == "🟢 Active"]) if not table_df.empty else 0
 total_tables  = len(table_df)
-last_ingest   = table_df["LAST_INGESTION_TIME"].max() if not table_df.empty else None
+last_ingest   = table_df["LAST_INGESTION_MTN"].max() if not table_df.empty else None
 stale_tables  = len(table_df[table_df["MINS_SINCE_INGEST"] > 120]) if not table_df.empty else 0
 total_dml     = int(cdc_df["DML_EVENTS"].sum()) if not cdc_df.empty else 0
 
@@ -125,11 +127,11 @@ st.divider()
 # ── Table ingestion status ─────────────────────────────────────────────────────
 st.subheader("Table Ingestion Status — All 35 CMC Tables")
 if not table_df.empty:
-    display_cols = ["TABLE_NAME", "STATUS", "LAST_INGESTION_TIME", "MINS_SINCE_INGEST", "ROW_COUNT"]
+    display_cols = ["TABLE_NAME", "STATUS", "LAST_INGESTION_MTN", "MINS_SINCE_INGEST", "ROW_COUNT"]
     display = table_df[display_cols].rename(columns={
         "TABLE_NAME":         "Table",
         "STATUS":             "Status",
-        "LAST_INGESTION_TIME":"Last Ingestion",
+        "LAST_INGESTION_MTN": "Last Ingestion (MT)",
         "MINS_SINCE_INGEST":  "Mins Ago",
         "ROW_COUNT":          "Row Count",
     })
@@ -173,5 +175,5 @@ st.divider()
 st.caption(
     f"60s cache · Filtered: service.name IN (openflow, openflow-runtime-server) · "
     f"Window: last {hours_back}h · "
-    f"Rendered: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"
+    f"Rendered: {datetime.now().strftime('%Y-%m-%d %H:%M MT')}"
 )

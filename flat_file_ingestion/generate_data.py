@@ -1,38 +1,36 @@
 """
 generate_data.py
-Generates two synthetic flat files for the CalOptima demo:
-  data/pharmacy_claims.csv  — 5,000 rows, 20 columns
-  data/medical_claims.xml   — 6,000 claims, 20 fields each
+Generates synthetic flat files for the CalOptima demo:
+  data/pharmacy_claims.csv           — 25,000 rows, 20 columns
+  data/medical_claims.xml            — 20,000 claims, 20 fields each
+  data/pharmacy_claims_bad_records.csv — 5,000 rows, 5 intentionally bad records
 
 Uses only Python stdlib. Run: python3 generate_data.py
+XML is written as a stream (not built in-memory) so it stays fast at large counts.
 """
 
 import csv
 import random
-import xml.etree.ElementTree as ET
 from datetime import date, timedelta
 from pathlib import Path
 
 random.seed(42)
 
-# ── Shared reference data ─────────────────────────────────────────────────────
-GENDERS        = ["M", "F"]
-CLAIM_STATUS   = (["PAID"] * 85) + (["DENIED"] * 10) + (["PENDING"] * 5)
-PLAN_TYPES     = (["MEDICAID"] * 65) + (["DSNP"] * 25) + (["HMO"] * 10)
+BASE_DATE = date(2026, 6, 30)
 
-# ~400 distinct standalone member IDs shared across both files
+# ── Shared reference data ─────────────────────────────────────────────────────
+GENDERS      = ["M", "F"]
+CLAIM_STATUS = (["PAID"] * 85) + (["DENIED"] * 10) + (["PENDING"] * 5)
+PLAN_TYPES   = (["MEDICAID"] * 65) + (["DSNP"] * 25) + (["HMO"] * 10)
+
+# ~400 distinct standalone member IDs shared across all three files
 MEMBER_IDS = [f"MBR-{i:07d}" for i in random.sample(range(1000000), 400)]
 
-def rand_date(start_days_ago=365, end_days_ago=0):
-    """Return a random date between start_days_ago and end_days_ago before today."""
-    base = date(2026, 6, 30)
-    delta = random.randint(end_days_ago, start_days_ago)
-    return base - timedelta(days=delta)
+def rand_date():
+    return (BASE_DATE - timedelta(days=random.randint(0, 365))).isoformat()
 
-def rand_dob(min_age=5, max_age=80):
-    base = date(2026, 6, 30)
-    age_days = random.randint(min_age * 365, max_age * 365)
-    return base - timedelta(days=age_days)
+def rand_dob():
+    return (BASE_DATE - timedelta(days=random.randint(5 * 365, 80 * 365))).isoformat()
 
 def rand_npi():
     return str(random.randint(1000000000, 1999999999))
@@ -42,23 +40,22 @@ def rand_money(lo, hi):
 
 # ── Pharmacy reference data ───────────────────────────────────────────────────
 DRUGS = [
-    # (NDC, name, category, tier)
-    ("00093-7236-56", "Metformin HCl 500mg",            "Diabetes",      1),
-    ("00093-0832-01", "Glipizide 5mg",                   "Diabetes",      1),
-    ("68645-0458-54", "Insulin Glargine 100u/mL",        "Diabetes",      3),
-    ("00781-1620-13", "Lisinopril 10mg",                 "Hypertension",  1),
-    ("00228-2895-11", "Amlodipine 5mg",                  "Hypertension",  1),
-    ("00093-1083-01", "Losartan 50mg",                   "Hypertension",  1),
-    ("00378-0221-01", "Metoprolol Succinate 25mg",       "Hypertension",  1),
-    ("00228-2061-11", "Hydrochlorothiazide 25mg",        "Hypertension",  1),
-    ("00093-0172-01", "Sertraline 50mg",                 "Mental Health", 1),
-    ("00781-5077-31", "Fluoxetine 20mg",                 "Mental Health", 1),
-    ("59762-0502-01", "Quetiapine 25mg",                 "Mental Health", 3),
-    ("59762-0174-01", "Albuterol HFA Inhaler",           "Asthma",        1),
-    ("00378-2010-01", "Atorvastatin 20mg",               "Cholesterol",   1),
-    ("00093-7044-01", "Levothyroxine 50mcg",             "Thyroid",       1),
-    ("00093-5162-56", "Gabapentin 300mg",                "Pain",          2),
-    ("00378-4320-01", "Omeprazole 20mg",                 "GI",            2),
+    ("00093-7236-56", "Metformin HCl 500mg",         "Diabetes",     1),
+    ("00093-0832-01", "Glipizide 5mg",                "Diabetes",     1),
+    ("68645-0458-54", "Insulin Glargine 100u/mL",     "Diabetes",     3),
+    ("00781-1620-13", "Lisinopril 10mg",              "Hypertension", 1),
+    ("00228-2895-11", "Amlodipine 5mg",               "Hypertension", 1),
+    ("00093-1083-01", "Losartan 50mg",                "Hypertension", 1),
+    ("00378-0221-01", "Metoprolol Succinate 25mg",    "Hypertension", 1),
+    ("00228-2061-11", "Hydrochlorothiazide 25mg",     "Hypertension", 1),
+    ("00093-0172-01", "Sertraline 50mg",              "Mental Health",1),
+    ("00781-5077-31", "Fluoxetine 20mg",              "Mental Health",1),
+    ("59762-0502-01", "Quetiapine 25mg",              "Mental Health",3),
+    ("59762-0174-01", "Albuterol HFA Inhaler",        "Asthma",       1),
+    ("00378-2010-01", "Atorvastatin 20mg",            "Cholesterol",  1),
+    ("00093-7044-01", "Levothyroxine 50mcg",          "Thyroid",      1),
+    ("00093-5162-56", "Gabapentin 300mg",             "Pain",         2),
+    ("00378-4320-01", "Omeprazole 20mg",              "GI",           2),
 ]
 
 PHARMACIES = [
@@ -74,11 +71,9 @@ PHARMACIES = [
 
 SPECIALTIES = [
     "Internal Medicine", "Family Medicine", "Pediatrics",
-    "OB/GYN", "Psychiatry", "Endocrinology",
-    "Cardiology", "Pulmonology",
+    "OB/GYN", "Psychiatry", "Endocrinology", "Cardiology", "Pulmonology",
 ]
 
-# ── Generate pharmacy_claims.csv ──────────────────────────────────────────────
 PHARMACY_FIELDS = [
     "CLAIM_ID", "MEMBER_ID", "DATE_OF_BIRTH", "GENDER",
     "FILL_DATE", "DRUG_NDC", "DRUG_NAME", "DRUG_CATEGORY",
@@ -90,54 +85,49 @@ PHARMACY_FIELDS = [
 ]
 
 def make_pharmacy_row(seq):
-    member_id  = random.choice(MEMBER_IDS)
-    dob        = rand_dob()
-    gender     = random.choice(GENDERS)
-    fill_date  = rand_date()
-    drug       = random.choice(DRUGS)
-    days       = random.choices([30, 90], weights=[70, 30])[0]
-    qty        = days * 2 if "mg" in drug[1] else days
-    pharm      = random.choice(PHARMACIES)
-    prescriber = rand_npi()
-    specialty  = random.choice(SPECIALTIES)
-    billed     = rand_money(8, 450)
-    copay      = random.choices([0.0, 1.0, 3.0, 10.0], weights=[40, 35, 15, 10])[0]
-    plan_paid  = max(0, round(billed * random.uniform(0.7, 0.95) - copay, 2))
-    status     = random.choice(CLAIM_STATUS)
+    drug     = random.choice(DRUGS)
+    pharm    = random.choice(PHARMACIES)
+    days     = random.choices([30, 90], weights=[70, 30])[0]
+    billed   = rand_money(8, 450)
+    copay    = random.choices([0.0, 1.0, 3.0, 10.0], weights=[40, 35, 15, 10])[0]
+    plan_pd  = max(0, round(billed * random.uniform(0.7, 0.95) - copay, 2))
+    status   = random.choice(CLAIM_STATUS)
     if status != "PAID":
-        plan_paid = 0.0
-        copay     = 0.0
-
+        plan_pd = copay = 0.0
     return {
-        "CLAIM_ID":            f"PH-2026-{seq:08d}",
-        "MEMBER_ID":           member_id,
-        "DATE_OF_BIRTH":       dob.isoformat(),
-        "GENDER":              gender,
-        "FILL_DATE":           fill_date.isoformat(),
-        "DRUG_NDC":            drug[0],
-        "DRUG_NAME":           drug[1],
-        "DRUG_CATEGORY":       drug[2],
-        "DAYS_SUPPLY":         days,
-        "QUANTITY_DISPENSED":  qty,
-        "GENERIC_IND":         "N" if drug[3] >= 3 else "Y",
-        "PHARMACY_NPI":        pharm[1],
-        "PHARMACY_NAME":       pharm[0],
-        "PRESCRIBER_NPI":      prescriber,
-        "PRESCRIBER_SPECIALTY": specialty,
-        "BILLED_AMOUNT":       f"{billed:.2f}",
-        "PLAN_PAID_AMOUNT":    f"{plan_paid:.2f}",
-        "MEMBER_COPAY":        f"{copay:.2f}",
-        "FORMULARY_TIER":      drug[3],
-        "CLAIM_STATUS":        status,
+        "CLAIM_ID":             f"PH-2026-{seq:08d}",
+        "MEMBER_ID":            random.choice(MEMBER_IDS),
+        "DATE_OF_BIRTH":        rand_dob(),
+        "GENDER":               random.choice(GENDERS),
+        "FILL_DATE":            rand_date(),
+        "DRUG_NDC":             drug[0],
+        "DRUG_NAME":            drug[1],
+        "DRUG_CATEGORY":        drug[2],
+        "DAYS_SUPPLY":          days,
+        "QUANTITY_DISPENSED":   days * 2 if "mg" in drug[1] else days,
+        "GENERIC_IND":          "N" if drug[3] >= 3 else "Y",
+        "PHARMACY_NPI":         pharm[1],
+        "PHARMACY_NAME":        pharm[0],
+        "PRESCRIBER_NPI":       rand_npi(),
+        "PRESCRIBER_SPECIALTY": random.choice(SPECIALTIES),
+        "BILLED_AMOUNT":        f"{billed:.2f}",
+        "PLAN_PAID_AMOUNT":     f"{plan_pd:.2f}",
+        "MEMBER_COPAY":         f"{copay:.2f}",
+        "FORMULARY_TIER":       drug[3],
+        "CLAIM_STATUS":         status,
     }
 
-out_csv = Path(__file__).parent / "data" / "pharmacy_claims.csv"
+# ── Generate pharmacy_claims.csv (25,000 rows) ────────────────────────────────
+DATA_DIR = Path(__file__).parent / "data"
+DATA_DIR.mkdir(exist_ok=True)
+
+out_csv = DATA_DIR / "pharmacy_claims.csv"
 with open(out_csv, "w", newline="") as f:
     w = csv.DictWriter(f, fieldnames=PHARMACY_FIELDS)
     w.writeheader()
-    for i in range(1, 5001):
+    for i in range(1, 25001):
         w.writerow(make_pharmacy_row(i))
-print(f"Wrote {out_csv}  (5,000 rows)")
+print(f"Wrote {out_csv}  (25,000 rows)")
 
 # ── Medical claims reference data ─────────────────────────────────────────────
 DIAGNOSES = [
@@ -156,12 +146,8 @@ DIAGNOSES = [
 ]
 
 SECONDARY_DX = [
-    "Z79.4",   # Long-term use of insulin
-    "Z87.39",  # Personal history of other endocrine, nutritional and metabolic diseases
-    "Z82.49",  # Family history of ischemic heart disease
-    "Z96.641", # Presence of right artificial hip joint
-    "Z79.01",  # Long-term (current) use of anticoagulants
-    None, None, None,  # ~37% have no secondary dx
+    "Z79.4", "Z87.39", "Z82.49", "Z96.641", "Z79.01",
+    None, None, None,   # ~37% no secondary dx
 ]
 
 PROCEDURES = [
@@ -174,102 +160,111 @@ PROCEDURES = [
     ("36415", "Venipuncture for Blood Collection"),
     ("99381", "Preventive Medicine New Patient Infant"),
     ("99386", "Preventive Medicine New Patient 40-64 Years"),
-    ("99213", "Office Visit Established Patient Low-Moderate Complexity"),  # weighted double
+    ("99213", "Office Visit Established Patient Low-Moderate Complexity"),
     ("99213", "Office Visit Established Patient Low-Moderate Complexity"),
     ("99214", "Office Visit Established Patient Moderate-High Complexity"),
 ]
 
-PLACE_OF_SERVICE = random.choices(
-    ["11", "22", "23"],
-    weights=[70, 20, 10],
-    k=6000,
-)
+POS_CHOICES = random.choices(["11", "22", "23"], weights=[70, 20, 10], k=20000)
 
 PROVIDERS = [
-    ("Garcia, Maria MD",        rand_npi(), "Internal Medicine"),
-    ("Nguyen, Thomas DO",       rand_npi(), "Family Medicine"),
-    ("Patel, Priya MD",         rand_npi(), "Pediatrics"),
-    ("Williams, Sandra MD",     rand_npi(), "OB/GYN"),
-    ("Kim, David MD",           rand_npi(), "Cardiology"),
-    ("Johnson, Robert MD",      rand_npi(), "Psychiatry"),
-    ("Martinez, Elena MD",      rand_npi(), "Endocrinology"),
-    ("Chen, Lisa MD",           rand_npi(), "Internal Medicine"),
-    ("Thompson, James DO",      rand_npi(), "Family Medicine"),
-    ("Robinson, Patricia NP",   rand_npi(), "Family Medicine"),
+    ("Garcia, Maria MD",      rand_npi(), "Internal Medicine"),
+    ("Nguyen, Thomas DO",     rand_npi(), "Family Medicine"),
+    ("Patel, Priya MD",       rand_npi(), "Pediatrics"),
+    ("Williams, Sandra MD",   rand_npi(), "OB/GYN"),
+    ("Kim, David MD",         rand_npi(), "Cardiology"),
+    ("Johnson, Robert MD",    rand_npi(), "Psychiatry"),
+    ("Martinez, Elena MD",    rand_npi(), "Endocrinology"),
+    ("Chen, Lisa MD",         rand_npi(), "Internal Medicine"),
+    ("Thompson, James DO",    rand_npi(), "Family Medicine"),
+    ("Robinson, Patricia NP", rand_npi(), "Family Medicine"),
 ]
 
-# ── Generate medical_claims.xml ───────────────────────────────────────────────
-root = ET.Element("MedicalClaims")
+# ── Generate medical_claims.xml (20,000 claims) — streaming write ─────────────
+out_xml = DATA_DIR / "medical_claims.xml"
+with open(out_xml, "w", encoding="utf-8") as f:
+    f.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+    f.write('<MedicalClaims>\n')
+    f.write('  <BatchInfo>\n')
+    f.write('    <BatchID>BATCH-20260630</BatchID>\n')
+    f.write('    <SubmitterID>CALOPTIMA-CLMS</SubmitterID>\n')
+    f.write('    <SubmissionDate>2026-06-30</SubmissionDate>\n')
+    f.write('    <TotalClaims>20000</TotalClaims>\n')
+    f.write('  </BatchInfo>\n')
 
-batch = ET.SubElement(root, "BatchInfo")
-ET.SubElement(batch, "BatchID").text          = "BATCH-20260630"
-ET.SubElement(batch, "SubmitterID").text      = "CALOPTIMA-CLMS"
-ET.SubElement(batch, "SubmissionDate").text   = "2026-06-30"
-ET.SubElement(batch, "TotalClaims").text      = "6000"
+    for i in range(1, 20001):
+        prov     = random.choice(PROVIDERS)
+        dx1      = random.choice(DIAGNOSES)
+        dx2      = random.choice(SECONDARY_DX)
+        proc     = random.choice(PROCEDURES)
+        billed   = rand_money(90, 850)
+        allowed  = round(billed * random.uniform(0.55, 0.85), 2)
+        copay    = random.choices([0.0, 5.0, 10.0, 20.0], weights=[50, 25, 15, 10])[0]
+        plan_pd  = max(0, round(allowed - copay, 2))
+        status   = random.choice(CLAIM_STATUS)
+        if status != "PAID":
+            plan_pd = copay = allowed = 0.0
 
-for i in range(1, 6001):
-    member_id = random.choice(MEMBER_IDS)
-    dob       = rand_dob()
-    gender    = random.choice(GENDERS)
-    plan_type = random.choice(PLAN_TYPES)
-    svc_date  = rand_date()
-    provider  = random.choice(PROVIDERS)
-    pos       = PLACE_OF_SERVICE[i - 1]
-    dx1       = random.choice(DIAGNOSES)
-    dx2_code  = random.choice(SECONDARY_DX)
-    proc      = random.choice(PROCEDURES)
-    billed    = rand_money(90, 850)
-    allowed   = round(billed * random.uniform(0.55, 0.85), 2)
-    copay     = random.choices([0.0, 5.0, 10.0, 20.0], weights=[50, 25, 15, 10])[0]
-    plan_paid = max(0, round(allowed - copay, 2))
-    status    = random.choice(CLAIM_STATUS)
-    if status != "PAID":
-        plan_paid = 0.0
-        copay     = 0.0
-        allowed   = 0.0
+        f.write('  <Claim>\n')
+        f.write(f'    <ClaimID>CLM-2026-{i:08d}</ClaimID>\n')
+        f.write(f'    <MemberID>{random.choice(MEMBER_IDS)}</MemberID>\n')
+        f.write(f'    <DateOfBirth>{rand_dob()}</DateOfBirth>\n')
+        f.write(f'    <Gender>{random.choice(GENDERS)}</Gender>\n')
+        f.write(f'    <PlanType>{random.choice(PLAN_TYPES)}</PlanType>\n')
+        f.write(f'    <ServiceDate>{rand_date()}</ServiceDate>\n')
+        f.write(f'    <ProviderNPI>{prov[1]}</ProviderNPI>\n')
+        f.write(f'    <ProviderName>{prov[0]}</ProviderName>\n')
+        f.write(f'    <ProviderSpecialty>{prov[2]}</ProviderSpecialty>\n')
+        f.write(f'    <PlaceOfService>{POS_CHOICES[i - 1]}</PlaceOfService>\n')
+        f.write(f'    <DiagnosisCode1>{dx1[0]}</DiagnosisCode1>\n')
+        f.write(f'    <DiagnosisCode2>{dx2 or ""}</DiagnosisCode2>\n')
+        f.write(f'    <ProcedureCode>{proc[0]}</ProcedureCode>\n')
+        f.write(f'    <ProcedureDescription>{proc[1]}</ProcedureDescription>\n')
+        f.write(f'    <Units>1</Units>\n')
+        f.write(f'    <BilledAmount>{billed:.2f}</BilledAmount>\n')
+        f.write(f'    <AllowedAmount>{allowed:.2f}</AllowedAmount>\n')
+        f.write(f'    <PlanPaidAmount>{plan_pd:.2f}</PlanPaidAmount>\n')
+        f.write(f'    <MemberResponsibility>{copay:.2f}</MemberResponsibility>\n')
+        f.write(f'    <ClaimStatus>{status}</ClaimStatus>\n')
+        f.write('  </Claim>\n')
 
-    c = ET.SubElement(root, "Claim")
-    ET.SubElement(c, "ClaimID").text               = f"CLM-2026-{i:08d}"
-    ET.SubElement(c, "MemberID").text              = member_id
-    ET.SubElement(c, "DateOfBirth").text           = dob.isoformat()
-    ET.SubElement(c, "Gender").text                = gender
-    ET.SubElement(c, "PlanType").text              = plan_type
-    ET.SubElement(c, "ServiceDate").text           = svc_date.isoformat()
-    ET.SubElement(c, "ProviderNPI").text           = provider[1]
-    ET.SubElement(c, "ProviderName").text          = provider[0]
-    ET.SubElement(c, "ProviderSpecialty").text     = provider[2]
-    ET.SubElement(c, "PlaceOfService").text        = pos
-    ET.SubElement(c, "DiagnosisCode1").text        = dx1[0]
-    ET.SubElement(c, "DiagnosisCode2").text        = dx2_code if dx2_code else ""
-    ET.SubElement(c, "ProcedureCode").text         = proc[0]
-    ET.SubElement(c, "ProcedureDescription").text  = proc[1]
-    ET.SubElement(c, "Units").text                 = "1"
-    ET.SubElement(c, "BilledAmount").text          = f"{billed:.2f}"
-    ET.SubElement(c, "AllowedAmount").text         = f"{allowed:.2f}"
-    ET.SubElement(c, "PlanPaidAmount").text        = f"{plan_paid:.2f}"
-    ET.SubElement(c, "MemberResponsibility").text  = f"{copay:.2f}"
-    ET.SubElement(c, "ClaimStatus").text           = status
+    f.write('</MedicalClaims>\n')
+print(f"Wrote {out_xml}  (20,000 claims)")
 
-def indent_xml(elem, level=0):
-    """Add pretty-print indentation to the XML tree."""
-    pad = "\n" + "  " * level
-    if len(elem):
-        if not elem.text or not elem.text.strip():
-            elem.text = pad + "  "
-        if not elem.tail or not elem.tail.strip():
-            elem.tail = pad
-        for child in elem:
-            indent_xml(child, level + 1)
-        if not child.tail or not child.tail.strip():
-            child.tail = pad
-    else:
-        if level and (not elem.tail or not elem.tail.strip()):
-            elem.tail = pad
+# ── Generate pharmacy_claims_bad_records.csv (5,000 rows, 5 bad) ─────────────
+# Bad records scattered at rows 312, 891, 1547, 2983, 4201:
+#   312  — MEMBER_ID empty (missing required field)
+#   891  — DRUG_NDC malformed (fails format validation)
+#   1547 — BILLED_AMOUNT negative (fails business rule)
+#   2983 — FILL_DATE in the future (fails date validation)
+#   4201 — PRESCRIBER_NPI only 5 digits (fails NPI length check)
+BAD_OVERRIDES = {
+    312:  {"MEMBER_ID":      ""},
+    891:  {"DRUG_NDC":       "INVALID-NDC"},
+    1547: {"BILLED_AMOUNT":  "-150.00"},
+    2983: {"FILL_DATE":      "2027-03-15"},
+    4201: {"PRESCRIBER_NPI": "12345"},
+}
 
-indent_xml(root)
-tree = ET.ElementTree(root)
+out_bad = DATA_DIR / "pharmacy_claims_bad_records.csv"
+with open(out_bad, "w", newline="") as f:
+    w = csv.DictWriter(f, fieldnames=PHARMACY_FIELDS)
+    w.writeheader()
+    for i in range(1, 5001):
+        row = make_pharmacy_row(i + 25000)   # offset so IDs don't collide
+        if i in BAD_OVERRIDES:
+            row.update(BAD_OVERRIDES[i])
+        w.writerow(row)
 
-out_xml = Path(__file__).parent / "data" / "medical_claims.xml"
-with open(out_xml, "wb") as f:
-    tree.write(f, encoding="utf-8", xml_declaration=True)
-print(f"Wrote {out_xml}  (6,000 claims)")
+print(f"Wrote {out_bad}  (5,000 rows, 5 bad records)")
+print()
+print("Bad record summary:")
+labels = {
+    312:  "MISSING_MEMBER_ID       — MEMBER_ID is empty",
+    891:  "INVALID_NDC_FORMAT      — DRUG_NDC='INVALID-NDC'",
+    1547: "NEGATIVE_BILLED_AMOUNT  — BILLED_AMOUNT='-150.00'",
+    2983: "FUTURE_FILL_DATE        — FILL_DATE='2027-03-15'",
+    4201: "INVALID_NPI_LENGTH      — PRESCRIBER_NPI='12345' (5 digits, not 10)",
+}
+for row_num, desc in labels.items():
+    print(f"  Row {row_num:5d}: {desc}")

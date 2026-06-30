@@ -26,5 +26,5 @@ models:
       - name: stage
         tests:
           - accepted_values: {values: ['Bronze', 'Silver']}
-      - name: rows
+      - name: row_count
         tests: [not_null]

@@ -1,6 +1,6 @@
 {{ config(materialized='table') }}
 
-SELECT 'CMC_PRPR_PROV'      AS layer, 'Bronze' AS stage, COUNT(*) AS rows
+SELECT 'CMC_PRPR_PROV'      AS layer, 'Bronze' AS stage, COUNT(*) AS row_count
 FROM {{ source('raw', 'CMC_PRPR_PROV') }}      WHERE _SNOWFLAKE_DELETED = FALSE
 UNION ALL
 SELECT 'silver_provider',    'Silver',           COUNT(*) FROM {{ ref('silver_provider') }}

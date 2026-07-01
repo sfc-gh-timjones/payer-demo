@@ -29,7 +29,8 @@ CREATE OR REPLACE STAGE MY_STAGE
 
 CREATE OR REPLACE FILE FORMAT my_csv_file_format
     TYPE = 'CSV'
-    PARSE_HEADER = TRUE;
+    PARSE_HEADER = TRUE
+    ERROR_ON_COLUMN_COUNT_MISMATCH = FALSE;  -- required for schema evolution with extra columns
 
 list @MY_STAGE/ingest_demo/;
 

@@ -9,6 +9,7 @@ Synthetic flat file demo data for the CalOptima RFP 26-038 demo.
 | `data/pharmacy_claims.csv` | 25,000 rows | PBM pharmacy dispensing extract (OptumRx/CVS style) — clean |
 | `data/medical_claims.xml` | 20,000 claims | Clearinghouse professional claims adjudication file (837P style) — clean |
 | `data/pharmacy_claims_bad_records.csv` | 5,000 rows | Pharmacy extract with 5 load-breaking records for COPY INTO validation demo |
+| `data/pharmacy_claims_add_refillnum.csv` | 1,000 rows | 21-column file adding REFILL_NUMBER (INTEGER) — for schema evolution demo |
 | `data/pharmacy_claims_inc1.csv` | 1,000 rows | Incremental batch 1 — clean, for Snowpipe file-arrival demo |
 | `data/pharmacy_claims_inc2.csv` | 1,000 rows | Incremental batch 2 — clean, for Snowpipe file-arrival demo |
 

@@ -266,6 +266,27 @@ with open(out_bad, "w", newline="") as f:
 
 print(f"Wrote {out_bad}  (5,000 rows, 5 load-breaking records)")
 
+# ── Generate pharmacy_claims_add_refillnum.csv (1,000 rows, 21 columns) ──────
+# 21st column: REFILL_NUMBER (INTEGER 0-11)
+# Drop this file into the stage AFTER the 20-column table exists.
+# MATCH_BY_COLUMN_NAME + ENABLE_SCHEMA_EVOLUTION causes Snowflake to
+# auto-ALTER the table, adding REFILL_NUMBER — existing rows get NULL,
+# new rows get the real value.
+FIELDS_WITH_REFILL = PHARMACY_FIELDS + ["REFILL_NUMBER"]
+out_evo = DATA_DIR / "pharmacy_claims_add_refillnum.csv"
+with open(out_evo, "w", newline="") as f:
+    w = csv.DictWriter(f, fieldnames=FIELDS_WITH_REFILL)
+    w.writeheader()
+    for i in range(1, 1001):
+        row = make_pharmacy_row(i + 60000)   # offset so IDs don't collide
+        row["REFILL_NUMBER"] = random.choices(
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+            weights=[35, 20, 15, 8, 6, 3, 3, 2, 2, 2, 2, 2],
+            k=1
+        )[0]
+        w.writerow(row)
+print(f"Wrote {out_evo}  (1,000 rows, 21 columns — adds REFILL_NUMBER for schema evolution demo)")
+
 # ── Generate pharmacy_claims_pipe1.csv and pipe2.csv (1,000 rows each) ────────
 for pipe_num, seed_offset in [(1, 50000), (2, 51000)]:
     out_pipe = DATA_DIR / f"pharmacy_claims_pipe{pipe_num}.csv"

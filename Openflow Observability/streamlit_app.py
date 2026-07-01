@@ -48,7 +48,9 @@ WITH telemetry AS (
     SELECT
         RECORD_ATTRIBUTES:"source.table.name"::VARCHAR              AS table_name,
         MAX(CASE WHEN RECORD:"metric"."name"::VARCHAR = 'db.last.ingestion.time'
-                 THEN {to_mtn('TO_TIMESTAMP_NTZ(VALUE::BIGINT / 1000)')} END) AS last_ingestion_mtn,
+                 THEN TO_TIMESTAMP_NTZ(VALUE::BIGINT / 1000) END)              AS last_ingestion_utc,
+        MAX(CASE WHEN RECORD:"metric"."name"::VARCHAR = 'db.last.ingestion.time'
+                 THEN {to_mtn('TO_TIMESTAMP_NTZ(VALUE::BIGINT / 1000)')} END)  AS last_ingestion_mtn,
         MAX(CASE WHEN RECORD:"metric"."name"::VARCHAR = 'db.table.status'
                  THEN VALUE::INTEGER END)                           AS status_code
     FROM OPENFLOW.TELEMETRY.EVENTS
@@ -67,8 +69,9 @@ row_counts AS (
 SELECT
     t.table_name,
     t.last_ingestion_mtn,
-    DATEDIFF('minute', t.last_ingestion_mtn,
-             {to_mtn('CURRENT_TIMESTAMP()')})                       AS mins_since_ingest,
+    DATEDIFF('minute',
+             t.last_ingestion_utc,
+             CONVERT_TIMEZONE('UTC', CURRENT_TIMESTAMP())::TIMESTAMP_NTZ)       AS mins_since_ingest,
     CASE t.status_code
         WHEN 3 THEN '🟢 Active'
         WHEN 2 THEN '🟡 Snapshot'

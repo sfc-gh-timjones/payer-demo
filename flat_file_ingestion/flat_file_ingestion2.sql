@@ -29,7 +29,8 @@ CREATE OR REPLACE STAGE MY_STAGE
 
 CREATE OR REPLACE FILE FORMAT my_csv_file_format
     TYPE = 'CSV'
-    PARSE_HEADER = TRUE;
+    PARSE_HEADER = TRUE
+    ERROR_ON_COLUMN_COUNT_MISMATCH = FALSE;  -- required for schema evolution with extra columns
 
 list @MY_STAGE/ingest_demo/;
 
@@ -175,6 +176,47 @@ SELECT SYSTEM$PIPE_STATUS('pipe_demo');
 
 SELECT *
 FROM pharmacy_claims;
+
+
+/***********************************************************************
+  SCHEMA EVOLUTION DEMO
+  Drop pharmacy_claims_add_refillnum.csv into the stage.
+  This file has 21 columns (adds REFILL_NUMBER INTEGER).
+  Snowpipe auto-ingests it; ENABLE_SCHEMA_EVOLUTION + MATCH_BY_COLUMN_NAME
+  causes Snowflake to automatically ALTER the table and add the new column.
+************************************************************************/
+
+-- Step 1: Before drop — confirm table has 20 columns (no REFILL_NUMBER)
+DESCRIBE TABLE pharmacy_claims;
+
+-- Step 2: Upload pharmacy_claims_add_refillnum.csv to:
+--   s3://capstone-timjones/ingest_demo/csv_example/
+-- Snowpipe fires automatically via SQS event notification.
+
+-- Step 3: After Snowpipe ingests — REFILL_NUMBER was added automatically
+DESCRIBE TABLE pharmacy_claims;
+-- REFILL_NUMBER column now appears as INTEGER, NULLABLE
+
+-- Step 4: Check the data split — existing rows NULL, new rows have values
+SELECT
+    CLAIM_ID,
+    DRUG_NAME,
+    DAYS_SUPPLY,
+    REFILL_NUMBER,
+    CASE
+        WHEN REFILL_NUMBER IS NULL THEN 'Pre-evolution (original load)'
+        ELSE 'Post-evolution (refill #' || REFILL_NUMBER::VARCHAR || ')'
+    END AS row_origin
+FROM pharmacy_claims
+ORDER BY REFILL_NUMBER NULLS FIRST
+LIMIT 20;
+
+-- Step 5: Count rows by batch origin
+SELECT
+    CASE WHEN REFILL_NUMBER IS NULL THEN 'Before evolution' ELSE 'After evolution' END AS batch,
+    COUNT(*) AS row_count
+FROM pharmacy_claims
+GROUP BY 1;
 
 
 /***********************************************************************

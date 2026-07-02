@@ -97,27 +97,29 @@ USE ROLE BUSINESS_ANALYST_ROLE;
 SELECT COUNT(*) AS visible_members FROM zFACETS_DEV_CLONE.SILVER.MEMBER;
 -- Expected: ~30,593 (COMM plan only — row policy enforced)
 
--- Revoke DATABASE access from BUSINESS_ANALYST_ROLE
--- Using database-level REVOKE for a clean, unambiguous demonstration
--- (revoking just table SELECT can have edge cases; revoking the database
--- is definitive — the role can't reach any object inside it)
+-- Revoke all access levels from BUSINESS_ANALYST_ROLE (table + schema + database)
 USE ROLE ACCOUNTADMIN;
 
-REVOKE USAGE ON DATABASE zFACETS_DEV_CLONE
-    FROM ROLE BUSINESS_ANALYST_ROLE;
+REVOKE SELECT ON TABLE zFACETS_DEV_CLONE.SILVER.MEMBER FROM ROLE BUSINESS_ANALYST_ROLE;
+REVOKE USAGE ON SCHEMA zFACETS_DEV_CLONE.SILVER FROM ROLE BUSINESS_ANALYST_ROLE;
+REVOKE USAGE ON DATABASE zFACETS_DEV_CLONE FROM ROLE BUSINESS_ANALYST_ROLE;
 
--- Next query after revoke is denied instantly — no lag
+-- Verify grants are gone
+SHOW GRANTS TO ROLE BUSINESS_ANALYST_ROLE;
+
+-- Attempt access — all three levels revoked, no secondary path
 USE ROLE BUSINESS_ANALYST_ROLE;
 
 SELECT COUNT(*) AS visible_members FROM zFACETS_DEV_CLONE.SILVER.MEMBER;
 -- → Error: "Database 'ZFACETS_DEV_CLONE' does not exist or not authorized."
 -- Talking point: zero lag. No session invalidation. Snowflake re-checks on every query.
 
--- Restore access for next demo run
+-- Restore all three levels for next demo run
 USE ROLE ACCOUNTADMIN;
 
-GRANT USAGE ON DATABASE zFACETS_DEV_CLONE
-    TO ROLE BUSINESS_ANALYST_ROLE;
+GRANT USAGE ON DATABASE zFACETS_DEV_CLONE TO ROLE BUSINESS_ANALYST_ROLE;
+GRANT USAGE ON SCHEMA zFACETS_DEV_CLONE.SILVER TO ROLE BUSINESS_ANALYST_ROLE;
+GRANT SELECT ON TABLE zFACETS_DEV_CLONE.SILVER.MEMBER TO ROLE BUSINESS_ANALYST_ROLE;
 
 USE ROLE BUSINESS_ANALYST_ROLE;
 SELECT COUNT(*) AS visible_members FROM zFACETS_DEV_CLONE.SILVER.MEMBER;

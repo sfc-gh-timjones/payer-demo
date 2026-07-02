@@ -106,7 +106,11 @@ ORDER BY
 --
 -- HOW TO RUN: Click the USE ROLE line for the role you want and run just that
 -- line, then run the SELECT below. Repeat to compare views.
---
+-- =============================================================================
+
+USE DATABASE zFACETS_DEV_CLONE;
+USE SCHEMA SILVER;
+
 -- Role privilege matrix:
 -- ┌──────────────────────────┬─────────────┬──────────────┬───────────────────┬──────────────────┐
 -- │ Classification           │ ACCOUNTADMIN│ DATA_ENGINEER│ ANALYTICS_INNOVATOR│ BUSINESS_ANALYST │
@@ -116,10 +120,6 @@ ORDER BY
 -- │ SENSITIVE (name, sex)    │ Full        │ Full         │ First initial+*** │ ***SENSITIVE***  │
 -- │ INTERNAL                 │ Full        │ Full         │ Full              │ Full             │
 -- └──────────────────────────┴─────────────┴──────────────┴───────────────────┴──────────────────┘
--- =============================================================================
-
-USE DATABASE zFACETS_DEV_CLONE;
-USE SCHEMA SILVER;
 
 -- ── Switch to the role you want, then run the query below ────────────────────
 USE ROLE ACCOUNTADMIN;
@@ -181,14 +181,14 @@ ORDER BY member_count DESC;
 -- ANALYTICS_INNOVATOR:          DSNP + COMM only — MEDCAID row is gone entirely
 -- BUSINESS_ANALYST:             COMM only — ~30,593 rows
 
--- Confirm MEDCAID is invisible to Analytics Innovator — returns no rows
-USE ROLE ANALYTICS_INNOVATOR_ROLE;
+-- Confirm DSNP is invisible to Business Analyst (run this as that role)
+USE ROLE BUSINESS_ANALYST_ROLE;
 SELECT *
 FROM MEMBER
-WHERE MEME_MCTR_TYPE = 'MEDCAID'
+WHERE MEME_MCTR_TYPE = 'DSNP'
 LIMIT 5;
 -- Returns 0 rows — row policy fires silently. No error.
--- The analyst doesn't know MEDCAID exists. HIPAA minimum necessary.
+-- The analyst doesn't know DSNP exists. HIPAA minimum necessary.
 
 
 -- =============================================================================

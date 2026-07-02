@@ -68,24 +68,17 @@ ORDER BY
 -- No business rules written. No manual column cataloging.
 
 -- Step 1c: Tag propagation — labels follow data through CTAS automatically
--- The USE ROLE switch to DATA_ENGINEER_ROLE here is intentional:
--- it shows that even when an ENGINEER (not admin) creates a copy,
--- the governance labels follow without any additional steps.
 -- Setup ref: tag created with PROPAGATE = ON_DEPENDENCY_AND_DATA_MOVEMENT
 --            (01_governance_setup.sql Section B, line ~129)
-USE ROLE DATA_ENGINEER_ROLE;
-
-CREATE OR REPLACE TABLE zFACETS_DEV_CLONE.SILVER.MEMBER_ANALYTICS_COPY
-    AS SELECT * FROM zFACETS_DEV_CLONE.SILVER.MEMBER;
-
-USE ROLE ACCOUNTADMIN;
+CREATE OR REPLACE TABLE MEMBER_COPY
+    AS SELECT * FROM MEMBER;
 
 SELECT
     COLUMN_NAME,
     TAG_VALUE AS classification_level
 FROM TABLE(
-    zFACETS_DEV_CLONE.INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS(
-        'zFACETS_DEV_CLONE.SILVER.MEMBER_ANALYTICS_COPY', 'table'
+    INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS(
+        'SILVER.MEMBER_COPY', 'table'
     )
 )
 WHERE TAG_NAME = 'DATA_CLASSIFICATION'
@@ -94,7 +87,7 @@ ORDER BY
         WHEN 'PII' THEN 1 WHEN 'RESTRICTED' THEN 2
         WHEN 'SENSITIVE' THEN 3 WHEN 'INTERNAL' THEN 4
     END, COLUMN_NAME;
--- Tags propagated to the engineer's copy — zero manual tagging.
+-- Tags propagated automatically — zero manual tagging required.
 
 
 -- =============================================================================
@@ -177,9 +170,14 @@ SELECT MEME_MCTR_TYPE, COUNT(*) AS member_count
 FROM MEMBER
 GROUP BY MEME_MCTR_TYPE
 ORDER BY member_count DESC;
--- ACCOUNTADMIN / DATA_ENGINEER: DSNP ~30,866 | MEDCAID ~30,642 | COMM ~30,593
--- ANALYTICS_INNOVATOR:          DSNP + COMM only — MEDCAID row is gone entirely
--- BUSINESS_ANALYST:             COMM only — ~30,593 rows
+-- Row visibility matrix (enforced by row access policy — 01 Section G, line 421):
+-- ┌─────────────────────────┬─────────────┬──────────────┬───────────────────┬──────────────────┐
+-- │ Plan Type               │ ACCOUNTADMIN│ DATA_ENGINEER│ ANALYTICS_INNOVATOR│ BUSINESS_ANALYST │
+-- ├─────────────────────────┼─────────────┼──────────────┼───────────────────┼──────────────────┤
+-- │ COMM   (~30,593 rows)   │ ✓ Visible   │ ✓ Visible    │ ✓ Visible         │ ✓ Visible        │
+-- │ DSNP   (~30,866 rows)   │ ✓ Visible   │ ✓ Visible    │ ✓ Visible         │ ✗ Hidden         │
+-- │ MEDCAID (~30,642 rows)  │ ✓ Visible   │ ✓ Visible    │ ✗ Hidden          │ ✗ Hidden         │
+-- └─────────────────────────┴─────────────┴──────────────┴───────────────────┴──────────────────┘
 
 -- Confirm DSNP is invisible to Business Analyst (run this as that role)
 USE ROLE BUSINESS_ANALYST_ROLE;
@@ -193,8 +191,7 @@ LIMIT 5;
 
 -- =============================================================================
 -- Next: Run 03_schema_access_demo.sql for:
---   Centralized governance (POLICY_STORE)
---   Analytics Innovator sandbox
+--   Separation of duties (BA sandbox + blocked DDL)
 --   Instant REVOKE demo
 --   Pre-built audit log
 -- =============================================================================

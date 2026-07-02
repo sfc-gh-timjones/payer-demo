@@ -504,6 +504,10 @@ GRANT SELECT ON TABLE zFACETS_DEV_CLONE.SILVER.MEMBER  TO ROLE BUSINESS_ANALYST_
 -- ── Analytics Innovator: own sandbox schema in GOVERNANCE_CA_DEMO ─────────────
 GRANT CREATE SCHEMA ON DATABASE GOVERNANCE_CA_DEMO TO ROLE ANALYTICS_INNOVATOR_ROLE;
 
+-- ── Business Analyst: own ANALYST schema in the clone for sandbox work ─────────
+-- Demonstrated in 03_schema_access_demo.sql Part 1
+GRANT CREATE SCHEMA ON DATABASE zFACETS_DEV_CLONE TO ROLE BUSINESS_ANALYST_ROLE;
+
 -- =============================================================================
 -- SECTION J: PRE-BUILT AUDIT ACCESS HISTORY TABLE
 -- Materialized snapshot of the last 90 days from ACCOUNT_USAGE.ACCESS_HISTORY.

@@ -16,14 +16,14 @@
 --   Section C → AI classification run on zFACETS_DEV_CLONE
 --   Section D → Tag-based masking policies (STRING / DATE / TIMESTAMP)
 --   Section E → Attach masking policies to tag
---   Section F → MEMBER_PHI table in PROTECTED schema
---   Section G → Manual PII/PHI tags on MEMBER_PHI columns
+--   Section F → Manual PII/PHI tags on zFACETS_DEV_CLONE.SILVER.MEMBER
+--   Section G → Row access policy (MEME_MCTR_TYPE plan-type filter)
 --   Section H → Row access policy (MEME_MCTR_TYPE plan-type filter)
 --   Section I → Role grants
 --
--- SOURCE TABLE: FACETS_DEV.SILVER.MEMBER (29 columns, ~92k rows)
--- PHI TABLE:    GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI (managed access schema)
--- CLONE:        zFACETS_DEV_CLONE (zero-copy clone of FACETS_DEV for discovery demo)
+-- DATA TABLE:   zFACETS_DEV_CLONE.SILVER.MEMBER — governance policies applied directly
+-- POLICY DB:    GOVERNANCE_CA_DEMO.POLICY_STORE — tag, masking policies, row access policy
+-- CLONE:        zFACETS_DEV_CLONE (zero-copy clone of FACETS_DEV)
 -- =============================================================================
 
 
@@ -97,16 +97,7 @@ CREATE OR REPLACE DATABASE zFACETS_DEV_CLONE CLONE FACETS_DEV;
 -- ── Governance database ───────────────────────────────────────────────────────
 CREATE DATABASE IF NOT EXISTS GOVERNANCE_CA_DEMO;
 
--- PROTECTED: WITH MANAGED ACCESS
---   All privilege grants on tables inside this schema must come from the schema
---   owner (ACCOUNTADMIN). Object owners (e.g. DATA_ENGINEER_ROLE) cannot
---   self-grant SELECT on MEMBER_PHI to other roles. This enforces separation of
---   duties for PHI data — governance team controls all access.
-CREATE SCHEMA IF NOT EXISTS GOVERNANCE_CA_DEMO.PROTECTED
-    WITH MANAGED ACCESS
-    COMMENT = 'PHI/PII governed schema. Managed access enforces that only ACCOUNTADMIN may grant privileges on tables inside this schema.';
-
--- POLICY_STORE: owns the tag, masking policies, and row access policy objects
+-- POLICY_STORE: owns the tag, masking policies, row access policy, and audit table
 CREATE SCHEMA IF NOT EXISTS GOVERNANCE_CA_DEMO.POLICY_STORE
     COMMENT = 'Governance policy objects: DATA_CLASSIFICATION tag, masking policies, row access policy, role mapping table.';
 
@@ -375,79 +366,61 @@ ALTER TAG DATA_CLASSIFICATION SET MASKING POLICY DATA_CLASSIFICATION_MASK_TIMEST
 
 
 -- =============================================================================
--- SECTION F: MEMBER_PHI TABLE IN PROTECTED SCHEMA
+-- SECTION F: MANUAL PII/PHI TAGS ON zFACETS_DEV_CLONE.SILVER.MEMBER
 --
--- Isolated copy of FACETS_DEV.SILVER.MEMBER. The governance demo runs against
--- this table — decoupled from the live Openflow CDC pipeline.
--- =============================================================================
-
-USE ROLE ACCOUNTADMIN;
-USE DATABASE GOVERNANCE_CA_DEMO;
-USE SCHEMA PROTECTED;
-
-CREATE OR REPLACE TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI
-    AS SELECT * FROM FACETS_DEV.SILVER.MEMBER;
-
--- Confirm row counts match source
-SELECT
-    (SELECT COUNT(*) FROM GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI)  AS phi_table_rows,
-    (SELECT COUNT(*) FROM FACETS_DEV.SILVER.MEMBER)                  AS source_rows;
-
--- Expected: ~92,101 rows | DSNP: 30,866 | MEDCAID: 30,642 | COMM: 30,593
-
-
--- =============================================================================
--- SECTION G: MANUAL PII/PHI TAGS ON MEMBER_PHI COLUMNS
+-- Governance policies (masking + row access) are applied directly to the clone's
+-- MEMBER table. No separate PHI table needed.
 --
--- The discovery demo (02_discovery_demo.sql) shows AI auto-classification on the clone.
--- MEMBER_PHI columns are tagged manually here so the masking demo fires reliably
--- during the live walk-through, regardless of AI classification confidence.
+-- The AI classification profile (Section C) already tagged many columns.
+-- Manual tags below guarantee key PHI columns fire reliably during the demo
+-- regardless of AI confidence scores.
 --
 -- Column → Classification:
---   MEME_LAST_NAME, MEME_FIRST_NAME          SENSITIVE  — patient name (HIPAA PHI, GDPR Art.4)
+--   MEME_LAST_NAME, MEME_FIRST_NAME          SENSITIVE  — patient name (HIPAA PHI)
 --   SUBSCRIBER_LAST_NAME, FIRST_NAME         SENSITIVE  — policyholder name
 --   SEX_DESC, MEME_SEX                       SENSITIVE  — biological sex (HIPAA PHI)
---   ACTIVE_PCP_NAME                          SENSITIVE  — treating provider name (HIPAA PHI)
+--   ACTIVE_PCP_NAME                          SENSITIVE  — treating provider (HIPAA PHI)
 --   MEME_DOB, SUBSCRIBER_DOB               RESTRICTED  — date of birth (HIPAA §164.514(b))
 --   MECD_AID_CD                                  PII   — Medi-Cal aid code (HIPAA PHI)
---   MECD_BIC                                     PII   — Medi-Cal beneficiary ID card (HIPAA PHI)
+--   MECD_BIC                                     PII   — Medi-Cal beneficiary ID (HIPAA PHI)
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
 
+
 -- PII: Medi-Cal identifiers — most sensitive HIPAA PHI in the member record
-ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI MODIFY COLUMN MECD_AID_CD
+ALTER TABLE zFACETS_DEV_CLONE.SILVER.MEMBER MODIFY COLUMN MECD_AID_CD
     SET TAG GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION = 'PII';
-ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI MODIFY COLUMN MECD_BIC
+ALTER TABLE zFACETS_DEV_CLONE.SILVER.MEMBER MODIFY COLUMN MECD_BIC
     SET TAG GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION = 'PII';
 
 -- RESTRICTED: Dates of birth — HIPAA §164.514(b) requires generalization
-ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI MODIFY COLUMN MEME_DOB
+ALTER TABLE zFACETS_DEV_CLONE.SILVER.MEMBER MODIFY COLUMN MEME_DOB
     SET TAG GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION = 'RESTRICTED';
-ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI MODIFY COLUMN SUBSCRIBER_DOB
+ALTER TABLE zFACETS_DEV_CLONE.SILVER.MEMBER MODIFY COLUMN SUBSCRIBER_DOB
     SET TAG GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION = 'RESTRICTED';
 
 -- SENSITIVE: Names and gender — PHI under HIPAA, special category under GDPR
-ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI MODIFY COLUMN MEME_LAST_NAME
+ALTER TABLE zFACETS_DEV_CLONE.SILVER.MEMBER MODIFY COLUMN MEME_LAST_NAME
     SET TAG GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION = 'SENSITIVE';
-ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI MODIFY COLUMN MEME_FIRST_NAME
+ALTER TABLE zFACETS_DEV_CLONE.SILVER.MEMBER MODIFY COLUMN MEME_FIRST_NAME
     SET TAG GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION = 'SENSITIVE';
-ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI MODIFY COLUMN SUBSCRIBER_LAST_NAME
+ALTER TABLE zFACETS_DEV_CLONE.SILVER.MEMBER MODIFY COLUMN SUBSCRIBER_LAST_NAME
     SET TAG GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION = 'SENSITIVE';
-ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI MODIFY COLUMN SUBSCRIBER_FIRST_NAME
+ALTER TABLE zFACETS_DEV_CLONE.SILVER.MEMBER MODIFY COLUMN SUBSCRIBER_FIRST_NAME
     SET TAG GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION = 'SENSITIVE';
-ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI MODIFY COLUMN MEME_SEX
+ALTER TABLE zFACETS_DEV_CLONE.SILVER.MEMBER MODIFY COLUMN MEME_SEX
     SET TAG GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION = 'SENSITIVE';
-ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI MODIFY COLUMN SEX_DESC
+ALTER TABLE zFACETS_DEV_CLONE.SILVER.MEMBER MODIFY COLUMN SEX_DESC
     SET TAG GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION = 'SENSITIVE';
-ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI MODIFY COLUMN ACTIVE_PCP_NAME
+ALTER TABLE zFACETS_DEV_CLONE.SILVER.MEMBER MODIFY COLUMN ACTIVE_PCP_NAME
     SET TAG GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION = 'SENSITIVE';
 
 
 -- =============================================================================
--- SECTION H: ROW ACCESS POLICY — PLAN TYPE FILTER
+-- SECTION G: ROW ACCESS POLICY — PLAN TYPE FILTER
 --
--- Filters MEMBER_PHI rows by MEME_MCTR_TYPE based on role.
+-- Filters zFACETS_DEV_CLONE.SILVER.MEMBER rows by MEME_MCTR_TYPE based on role.
 -- Plan types: DSNP (30,866 rows) | MEDCAID (30,642 rows) | COMM (30,593 rows)
 --
 -- Role → Visible plan types:
@@ -499,47 +472,37 @@ CREATE OR REPLACE ROW ACCESS POLICY GOVERNANCE_CA_DEMO.POLICY_STORE.MEMBER_PLAN_
     END
     COMMENT = 'Limits MEMBER_PHI rows by MEME_MCTR_TYPE per role. Entitlement table (ROW_POLICY_MAP) controls analyst tiers. HIPAA minimum necessary standard.';
 
-ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI
+ALTER TABLE zFACETS_DEV_CLONE.SILVER.MEMBER
     ADD ROW ACCESS POLICY GOVERNANCE_CA_DEMO.POLICY_STORE.MEMBER_PLAN_ACCESS_POLICY
     ON (MEME_MCTR_TYPE);
 
 
 -- =============================================================================
--- SECTION I: ROLE GRANTS
---
--- All grants on GOVERNANCE_CA_DEMO.PROTECTED objects flow through ACCOUNTADMIN
--- (managed access schema). DATA_ENGINEER_ROLE cannot grant PHI access to others.
+-- SECTION H: ROLE GRANTS
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
 
--- ── Database-level access ─────────────────────────────────────────────────────
+-- ── GOVERNANCE_CA_DEMO: all roles need the database for POLICY_STORE access ───
 GRANT USAGE ON DATABASE GOVERNANCE_CA_DEMO TO ROLE DATA_ENGINEER_ROLE;
 GRANT USAGE ON DATABASE GOVERNANCE_CA_DEMO TO ROLE ANALYTICS_INNOVATOR_ROLE;
 GRANT USAGE ON DATABASE GOVERNANCE_CA_DEMO TO ROLE BUSINESS_ANALYST_ROLE;
 
--- ── PROTECTED schema (managed access — grants from ACCOUNTADMIN only) ────────
-GRANT USAGE ON SCHEMA GOVERNANCE_CA_DEMO.PROTECTED TO ROLE DATA_ENGINEER_ROLE;
-GRANT USAGE ON SCHEMA GOVERNANCE_CA_DEMO.PROTECTED TO ROLE ANALYTICS_INNOVATOR_ROLE;
-GRANT USAGE ON SCHEMA GOVERNANCE_CA_DEMO.PROTECTED TO ROLE BUSINESS_ANALYST_ROLE;
-
--- All roles get SELECT — masking and row policies enforce access transparently
-GRANT SELECT ON TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI TO ROLE DATA_ENGINEER_ROLE;
-GRANT SELECT ON TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI TO ROLE ANALYTICS_INNOVATOR_ROLE;
-GRANT SELECT ON TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI TO ROLE BUSINESS_ANALYST_ROLE;
-
--- ── POLICY_STORE schema (engineer reads mapping table) ────────────────────────
+-- ── POLICY_STORE: engineer reads the mapping table ────────────────────────────
 GRANT USAGE ON SCHEMA GOVERNANCE_CA_DEMO.POLICY_STORE TO ROLE DATA_ENGINEER_ROLE;
 GRANT SELECT ON TABLE GOVERNANCE_CA_DEMO.POLICY_STORE.ROW_POLICY_MAP TO ROLE DATA_ENGINEER_ROLE;
 
--- ── Analytics Innovator: own sandbox schema (separation of duties demo) ───────
--- Can CREATE schemas in GOVERNANCE_CA_DEMO — but cannot touch PROTECTED
-GRANT CREATE SCHEMA ON DATABASE GOVERNANCE_CA_DEMO TO ROLE ANALYTICS_INNOVATOR_ROLE;
+-- ── Clone: analyst roles need access to query SILVER.MEMBER ──────────────────
+-- DATA_ENGINEER_ROLE already granted in Section C
+GRANT USAGE ON DATABASE zFACETS_DEV_CLONE              TO ROLE ANALYTICS_INNOVATOR_ROLE;
+GRANT USAGE ON DATABASE zFACETS_DEV_CLONE              TO ROLE BUSINESS_ANALYST_ROLE;
+GRANT USAGE ON SCHEMA zFACETS_DEV_CLONE.SILVER         TO ROLE ANALYTICS_INNOVATOR_ROLE;
+GRANT USAGE ON SCHEMA zFACETS_DEV_CLONE.SILVER         TO ROLE BUSINESS_ANALYST_ROLE;
+GRANT SELECT ON TABLE zFACETS_DEV_CLONE.SILVER.MEMBER  TO ROLE ANALYTICS_INNOVATOR_ROLE;
+GRANT SELECT ON TABLE zFACETS_DEV_CLONE.SILVER.MEMBER  TO ROLE BUSINESS_ANALYST_ROLE;
 
--- ── FACETS_DEV: engineer reads source (for pipeline validation demos) ─────────
-GRANT USAGE ON DATABASE FACETS_DEV                      TO ROLE DATA_ENGINEER_ROLE;
-GRANT USAGE ON ALL SCHEMAS IN DATABASE FACETS_DEV        TO ROLE DATA_ENGINEER_ROLE;
-GRANT SELECT ON ALL TABLES IN DATABASE FACETS_DEV        TO ROLE DATA_ENGINEER_ROLE;
+-- ── Analytics Innovator: own sandbox schema in GOVERNANCE_CA_DEMO ─────────────
+GRANT CREATE SCHEMA ON DATABASE GOVERNANCE_CA_DEMO TO ROLE ANALYTICS_INNOVATOR_ROLE;
 
 -- =============================================================================
 -- SECTION J: PRE-BUILT AUDIT ACCESS HISTORY TABLE
@@ -552,18 +515,23 @@ USE ROLE ACCOUNTADMIN;
 USE DATABASE GOVERNANCE_CA_DEMO;
 USE SCHEMA POLICY_STORE;
 
+-- ACCESS_HISTORY has query/object metadata; QUERY_HISTORY has role + query text.
+-- JOIN them to get the full picture in one table.
 CREATE OR REPLACE TABLE ACCOUNT_ACCESS_HISTORY AS
 SELECT
-    QUERY_START_TIME,
-    USER_NAME,
-    ROLE_NAME,
-    LEFT(QUERY_TEXT, 200)                                AS query_preview,
-    EXECUTION_STATUS,
-    DIRECT_OBJECTS_ACCESSED[0]:objectName::STRING        AS first_object_accessed,
-    DIRECT_OBJECTS_ACCESSED[0]:objectDomain::STRING      AS object_domain
-FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY
-WHERE QUERY_START_TIME >= DATEADD('day', -90, CURRENT_TIMESTAMP())
-ORDER BY QUERY_START_TIME DESC;
+    ah.QUERY_ID,
+    ah.QUERY_START_TIME,
+    qh.USER_NAME,
+    qh.ROLE_NAME,
+    LEFT(qh.QUERY_TEXT, 200)                             AS query_preview,
+    qh.EXECUTION_STATUS,
+    ah.DIRECT_OBJECTS_ACCESSED[0]:objectName::STRING     AS first_object_accessed,
+    ah.DIRECT_OBJECTS_ACCESSED[0]:objectDomain::STRING   AS object_domain
+FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY ah
+LEFT JOIN SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY qh
+    ON ah.QUERY_ID = qh.QUERY_ID
+WHERE ah.QUERY_START_TIME >= DATEADD('day', -90, CURRENT_TIMESTAMP())
+ORDER BY ah.QUERY_START_TIME DESC;
 
 GRANT SELECT ON TABLE GOVERNANCE_CA_DEMO.POLICY_STORE.ACCOUNT_ACCESS_HISTORY
     TO ROLE DATA_ENGINEER_ROLE;
@@ -573,8 +541,8 @@ GRANT SELECT ON TABLE GOVERNANCE_CA_DEMO.POLICY_STORE.ACCOUNT_ACCESS_HISTORY
 -- SETUP COMPLETE
 -- Verify with:
 --   SELECT COLUMN_NAME, TAG_VALUE
---   FROM TABLE(GOVERNANCE_CA_DEMO.INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS(
---       'GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI','table'))
+--   FROM TABLE(zFACETS_DEV_CLONE.INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS(
+--       'zFACETS_DEV_CLONE.SILVER.MEMBER','table'))
 --   WHERE TAG_NAME = 'DATA_CLASSIFICATION';
 --
 --   SELECT * FROM GOVERNANCE_CA_DEMO.POLICY_STORE.ROW_POLICY_MAP;

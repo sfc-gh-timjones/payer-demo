@@ -51,7 +51,7 @@ SELECT
     TAG_VALUE AS classification_level
 FROM TABLE(
     INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS(
-        'zFACETS_DEV_CLONE.SILVER.MEMBER', 'table'
+        'MEMBER', 'table'
     )
 )
 WHERE TAG_NAME = 'DATA_CLASSIFICATION'
@@ -78,7 +78,7 @@ SELECT
     TAG_VALUE AS classification_level
 FROM TABLE(
     INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS(
-        'SILVER.MEMBER_COPY', 'table'
+        'MEMBER_COPY', 'table'
     )
 )
 WHERE TAG_NAME = 'DATA_CLASSIFICATION'
@@ -100,10 +100,6 @@ ORDER BY
 -- HOW TO RUN: Click the USE ROLE line for the role you want and run just that
 -- line, then run the SELECT below. Repeat to compare views.
 -- =============================================================================
-
-USE DATABASE zFACETS_DEV_CLONE;
-USE SCHEMA SILVER;
-
 -- Role privilege matrix:
 -- ┌──────────────────────────┬─────────────┬──────────────┬───────────────────┬──────────────────┐
 -- │ Classification           │ ACCOUNTADMIN│ DATA_ENGINEER│ ANALYTICS_INNOVATOR│ BUSINESS_ANALYST │
@@ -146,10 +142,6 @@ LIMIT 10;
 -- "Column masking controls what you SEE. Row-level security controls
 --  which populations you can ACCESS at all."
 -- =============================================================================
-
-USE DATABASE zFACETS_DEV_CLONE;
-USE SCHEMA SILVER;
-
 -- Show the row access policy mapping so the audience understands the logic
 USE ROLE ACCOUNTADMIN;
 
@@ -170,6 +162,7 @@ SELECT MEME_MCTR_TYPE, COUNT(*) AS member_count
 FROM MEMBER
 GROUP BY MEME_MCTR_TYPE
 ORDER BY member_count DESC;
+
 -- Row visibility matrix (enforced by row access policy — 01 Section G, line 421):
 -- ┌─────────────────────────┬─────────────┬──────────────┬───────────────────┬──────────────────┐
 -- │ Plan Type               │ ACCOUNTADMIN│ DATA_ENGINEER│ ANALYTICS_INNOVATOR│ BUSINESS_ANALYST │

@@ -24,11 +24,8 @@ USE WAREHOUSE WH_XS;
 USE ROLE BUSINESS_ANALYST_ROLE;
 
 -- BA creates their own schema in the clone database
-CREATE SCHEMA IF NOT EXISTS zFACETS_DEV_CLONE.ANALYST
+CREATE SCHEMA IF NOT EXISTS ANALYST
     COMMENT = 'Business Analyst sandbox — read/write here, read-only on SILVER.';
-
-USE DATABASE zFACETS_DEV_CLONE;
-USE SCHEMA ANALYST;
 
 -- CTAS: BA builds a working table from COMM members
 -- (row policy enforces they only see COMM rows — even in their own sandbox)
@@ -56,11 +53,11 @@ SELECT COUNT(*) AS active_commercial_members FROM COMM_ACTIVE_MEMBERS;
 -- ── Now try to break out of the sandbox ──────────────────────────────────────
 -- Uncomment either line to demonstrate — both will fail
 
--- INSERT INTO SILVER.MEMBER (MEME_ID, SBSB_ID, MEME_LAST_NAME, MEME_FIRST_NAME, MEME_MCTR_TYPE)
--- VALUES (99999, 99999, 'TEST', 'RECORD', 'COMM');
+INSERT INTO SILVER.MEMBER (MEME_ID, SBSB_ID, MEME_LAST_NAME, MEME_FIRST_NAME, MEME_MCTR_TYPE)
+VALUES (99999, 99999, 'TEST', 'RECORD', 'COMM');
 -- → Error: Insufficient privileges to INSERT
 
--- DROP TABLE SILVER.MEMBER;
+DROP TABLE SILVER.MEMBER;
 -- → Error: Insufficient privileges to DROP
 
 -- Talking point: BA owns everything in ANALYST schema, but SILVER.MEMBER is
@@ -74,7 +71,6 @@ SELECT COUNT(*) AS active_commercial_members FROM COMM_ACTIVE_MEMBERS;
 
 -- Verify BA currently has access
 USE ROLE BUSINESS_ANALYST_ROLE;
-USE DATABASE zFACETS_DEV_CLONE;
 
 SELECT COUNT(*) AS visible_members FROM SILVER.MEMBER;
 -- Expected: ~30,593 (COMM only — row policy enforced)
@@ -92,7 +88,7 @@ SHOW GRANTS TO ROLE BUSINESS_ANALYST_ROLE;
 -- Attempt access — denied instantly, no lag
 USE ROLE BUSINESS_ANALYST_ROLE;
 
-SELECT COUNT(*) AS visible_members FROM zFACETS_DEV_CLONE.SILVER.MEMBER;
+SELECT COUNT(*) AS visible_members FROM SILVER.MEMBER;
 -- → Error: "Database 'ZFACETS_DEV_CLONE' does not exist or not authorized."
 -- Talking point: zero lag. No session invalidation. Re-checked on every query.
 
@@ -139,6 +135,7 @@ ORDER BY ah.QUERY_START_TIME DESC;
 
 -- Last 30 queries
 SELECT * FROM ACCOUNT_ACCESS_HISTORY
+WHERE USER_NAME IS NOT NULL 
 ORDER BY QUERY_START_TIME DESC
 LIMIT 30;
 

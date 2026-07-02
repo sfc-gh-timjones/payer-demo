@@ -38,8 +38,11 @@
 USE ROLE ACCOUNTADMIN;
 
 -- Demo databases (cascade drops all objects inside)
-DROP DATABASE IF EXISTS GOVERNANCE_CA_DEMO;
+-- zFACETS_DEV_CLONE must drop FIRST — its SILVER schema holds tag references
+-- from GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION. Dropping the tag
+-- owner (GOVERNANCE_CA_DEMO) while those references exist will fail.
 DROP DATABASE IF EXISTS zFACETS_DEV_CLONE;
+DROP DATABASE IF EXISTS GOVERNANCE_CA_DEMO;
 
 -- Demo roles (drop in leaf-first order to avoid hierarchy conflicts)
 DROP ROLE IF EXISTS BUSINESS_ANALYST_ROLE;

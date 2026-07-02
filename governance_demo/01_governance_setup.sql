@@ -103,6 +103,21 @@ CREATE OR REPLACE TAG GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION
 -- Snowflake AI maps semantic categories to DATA_CLASSIFICATION tag values.
 -- Applied to zFACETS_DEV_CLONE — used for the live SYSTEM$CLASSIFY discovery demo.
 --
+-- HOW SNOWFLAKE CLASSIFICATION WORKS (profile-driven model):
+--   Snowflake treats automatic sensitive data classification as profile-driven rather
+--   than something that happens by default. To enable ongoing automatic scanning, you
+--   create a CLASSIFICATION_PROFILE and attach it to a database or schema. The profile
+--   controls:
+--     • Whether tags are auto-applied after classification (auto_tag)
+--     • Which objects are included (tables, views via classify_views)
+--     • How often reclassification happens (maximum_classification_validity_days)
+--     • Minimum object age before first scan (minimum_object_age_for_classification_days)
+--     • Any custom classifiers or tag mappings (tag_map / column_tag_map)
+--   Manual/one-time classification still exists separately for spot checks or testing
+--   (e.g. SYSTEM$CLASSIFY with auto_tag: false — see 02_discovery_demo.sql Beat 2).
+--   In Snowsight / Trust Center the same concept applies: the UI saves those settings
+--   as a classification profile behind the scenes.
+--
 -- Compliance mapping:
 --   PII        → GDPR Art.4(1), HIPAA PHI, CCPA Personal Information
 --   RESTRICTED → GDPR Art.9 (special categories), HIPAA limited dataset

@@ -16,6 +16,7 @@
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
+USE SECONDARY ROLES NONE;
 
 USE DATABASE zFACETS_DEV_CLONE;
 USE SCHEMA SILVER;

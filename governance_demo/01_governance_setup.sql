@@ -241,11 +241,10 @@ CALL SYSTEM$CLASSIFY(
 --   instead of duplicating the role list. Adding or revoking a full-access role
 --   requires editing ONE function — all policies inherit the change immediately.
 --
---   IS_ROLE_IN_SESSION vs CURRENT_ROLE:
---   IS_ROLE_IN_SESSION('X') returns TRUE when role X is active OR inherited via the
---   role hierarchy. CURRENT_ROLE() returns only the primary active role and ignores
---   inheritance — would wrongly mask a DATA_ENGINEER who assumed the role via hierarchy.
---   All role checks use IS_ROLE_IN_SESSION per Snowflake governance best practices.
+--   CURRENT_ROLE() for explicit USE ROLE demo switching:
+--   In this demo, roles are switched with USE ROLE commands. CURRENT_ROLE() returns
+--   the exact active role, making masking deterministic during a live walk-through.
+--   phi_full_access() uses CURRENT_ROLE() IN (...) — simple and reliable.
 --
 -- Role privilege matrix:
 -- ┌──────────────────────────┬─────────────┬──────────────┬───────────────────┬──────────────────┐
@@ -270,7 +269,7 @@ RETURNS BOOLEAN
 MEMOIZABLE
 AS
 $$
-    IS_ROLE_IN_SESSION('ACCOUNTADMIN') OR IS_ROLE_IN_SESSION('DATA_ENGINEER_ROLE')
+    CURRENT_ROLE() IN ('ACCOUNTADMIN', 'DATA_ENGINEER_ROLE')
 $$;
 
 -- ── STRING masking policy ────────────────────────────────────────────────────
@@ -284,7 +283,7 @@ CASE
     WHEN GOVERNANCE_CA_DEMO.POLICY_STORE.phi_full_access()
         THEN VAL
     -- ANALYTICS_INNOVATOR: partial masking — enough for analytics, not full PHI
-    WHEN IS_ROLE_IN_SESSION('ANALYTICS_INNOVATOR_ROLE') THEN
+    WHEN CURRENT_ROLE() = 'ANALYTICS_INNOVATOR_ROLE' THEN
         CASE SYSTEM$GET_TAG_ON_CURRENT_COLUMN('GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION')
             WHEN 'PII'        THEN '*** PHI REDACTED ***'           -- Medi-Cal IDs fully redacted
             WHEN 'RESTRICTED' THEN CONCAT('***-', RIGHT(VAL, 4))   -- last 4 chars only
@@ -292,7 +291,7 @@ CASE
             ELSE VAL
         END
     -- BUSINESS_ANALYST: all PHI/PII fully opaque — minimum necessary
-    WHEN IS_ROLE_IN_SESSION('BUSINESS_ANALYST_ROLE') THEN
+    WHEN CURRENT_ROLE() = 'BUSINESS_ANALYST_ROLE' THEN
         CASE SYSTEM$GET_TAG_ON_CURRENT_COLUMN('GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION')
             WHEN 'PII'        THEN '*** PHI REDACTED ***'
             WHEN 'RESTRICTED' THEN '*** RESTRICTED ***'
@@ -301,7 +300,7 @@ CASE
         END
     ELSE '*** ACCESS DENIED ***'
 END
-COMMENT = 'STRING masking on DATA_CLASSIFICATION tag. Split pattern (phi_full_access). IS_ROLE_IN_SESSION for hierarchy-aware role checks. HIPAA §164.514 / GDPR Art.25.';
+COMMENT = 'STRING masking on DATA_CLASSIFICATION tag. Split pattern (phi_full_access). CURRENT_ROLE() for explicit demo USE ROLE switching. HIPAA §164.514 / GDPR Art.25.';
 
 -- ── DATE masking policy ──────────────────────────────────────────────────────
 -- Covers: MEME_DOB, SUBSCRIBER_DOB (RESTRICTED — date of birth)
@@ -311,14 +310,14 @@ AS (VAL DATE) RETURNS DATE ->
 CASE
     WHEN GOVERNANCE_CA_DEMO.POLICY_STORE.phi_full_access()
         THEN VAL
-    WHEN IS_ROLE_IN_SESSION('ANALYTICS_INNOVATOR_ROLE') THEN
+    WHEN CURRENT_ROLE() = 'ANALYTICS_INNOVATOR_ROLE' THEN
         CASE SYSTEM$GET_TAG_ON_CURRENT_COLUMN('GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION')
             WHEN 'PII'        THEN NULL
             WHEN 'RESTRICTED' THEN DATE_TRUNC('YEAR', VAL)  -- HIPAA §164.514(b) safe harbor
             WHEN 'SENSITIVE'  THEN DATE_TRUNC('MONTH', VAL)
             ELSE VAL
         END
-    WHEN IS_ROLE_IN_SESSION('BUSINESS_ANALYST_ROLE') THEN
+    WHEN CURRENT_ROLE() = 'BUSINESS_ANALYST_ROLE' THEN
         CASE SYSTEM$GET_TAG_ON_CURRENT_COLUMN('GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION')
             WHEN 'PII'        THEN NULL
             WHEN 'RESTRICTED' THEN NULL
@@ -327,7 +326,7 @@ CASE
         END
     ELSE NULL
 END
-COMMENT = 'DATE masking on DATA_CLASSIFICATION tag. Split pattern (phi_full_access). IS_ROLE_IN_SESSION for hierarchy-aware checks. HIPAA §164.514(b): RESTRICTED → year-only for Analytics Innovator, NULL for Business Analyst.';
+COMMENT = 'DATE masking on DATA_CLASSIFICATION tag. Split pattern (phi_full_access). HIPAA §164.514(b): RESTRICTED → year-only for Analytics Innovator, NULL for Business Analyst.';
 
 -- ── TIMESTAMP masking policy ─────────────────────────────────────────────────
 -- Covers: BRONZE_UPDATED_AT (TIMESTAMP_NTZ), SILVER_LOADED_AT (TIMESTAMP_LTZ)
@@ -338,13 +337,13 @@ AS (VAL TIMESTAMP_NTZ) RETURNS TIMESTAMP_NTZ ->
 CASE
     WHEN GOVERNANCE_CA_DEMO.POLICY_STORE.phi_full_access()
         THEN VAL
-    WHEN IS_ROLE_IN_SESSION('ANALYTICS_INNOVATOR_ROLE') THEN
+    WHEN CURRENT_ROLE() = 'ANALYTICS_INNOVATOR_ROLE' THEN
         CASE SYSTEM$GET_TAG_ON_CURRENT_COLUMN('GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION')
             WHEN 'PII'        THEN NULL
             WHEN 'RESTRICTED' THEN DATE_TRUNC('DAY', VAL)
             ELSE VAL
         END
-    WHEN IS_ROLE_IN_SESSION('BUSINESS_ANALYST_ROLE') THEN
+    WHEN CURRENT_ROLE() = 'BUSINESS_ANALYST_ROLE' THEN
         CASE SYSTEM$GET_TAG_ON_CURRENT_COLUMN('GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION')
             WHEN 'PII'        THEN NULL
             WHEN 'RESTRICTED' THEN NULL
@@ -352,7 +351,7 @@ CASE
         END
     ELSE NULL
 END
-COMMENT = 'TIMESTAMP_NTZ masking on DATA_CLASSIFICATION tag. Split pattern (phi_full_access). IS_ROLE_IN_SESSION for hierarchy-aware checks.';
+COMMENT = 'TIMESTAMP_NTZ masking on DATA_CLASSIFICATION tag. Split pattern (phi_full_access).';
 
 
 -- =============================================================================
@@ -461,6 +460,12 @@ USE ROLE ACCOUNTADMIN;
 USE DATABASE GOVERNANCE_CA_DEMO;
 USE SCHEMA POLICY_STORE;
 
+-- Plan type definitions (MEME_MCTR_TYPE values in MEMBER_PHI):
+--   COMM    → Commercial — employer-sponsored or individual managed care (CalOptima Access)
+--   DSNP    → Dual Special Needs Plan — Medicare + Medi-Cal dual-eligible members
+--   MEDCAID → Medi-Cal — California Medicaid; heightened privacy sensitivity because
+--             enrollment reveals low-income or disability status (HIPAA minimum necessary)
+
 -- Role → plan type mapping table (driven from data, not hardcoded in policy)
 CREATE OR REPLACE TABLE ROW_POLICY_MAP (
     ROLE               VARCHAR(100)  NOT NULL,
@@ -478,11 +483,10 @@ INSERT INTO ROW_POLICY_MAP VALUES
 CREATE OR REPLACE ROW ACCESS POLICY GOVERNANCE_CA_DEMO.POLICY_STORE.MEMBER_PLAN_ACCESS_POLICY
     AS (PLAN_TYPE VARCHAR) RETURNS BOOLEAN ->
     CASE
-        -- IS_ROLE_IN_SESSION: honours role hierarchy, unlike CURRENT_ROLE()
-        WHEN IS_ROLE_IN_SESSION('ACCOUNTADMIN') OR IS_ROLE_IN_SESSION('DATA_ENGINEER_ROLE')
+        -- CURRENT_ROLE() matches the explicitly-set USE ROLE for demo switching
+        WHEN CURRENT_ROLE() IN ('ACCOUNTADMIN', 'DATA_ENGINEER_ROLE')
             THEN TRUE
-        -- Mapping table lookup: CURRENT_ROLE() here is intentional — we compare the
-        -- exact active role against entitlement rows (entitlement table pattern)
+        -- Mapping table lookup: compare the active role name against entitlement rows
         ELSE EXISTS (
             SELECT 1
             FROM GOVERNANCE_CA_DEMO.POLICY_STORE.ROW_POLICY_MAP rp
@@ -490,7 +494,7 @@ CREATE OR REPLACE ROW ACCESS POLICY GOVERNANCE_CA_DEMO.POLICY_STORE.MEMBER_PLAN_
               AND (rp.VISIBLE_PLAN_TYPE = 'ALL' OR rp.VISIBLE_PLAN_TYPE = PLAN_TYPE)
         )
     END
-    COMMENT = 'Limits MEMBER_PHI rows by MEME_MCTR_TYPE per role. IS_ROLE_IN_SESSION for admin bypass. Entitlement table (ROW_POLICY_MAP) for analyst tiers. HIPAA minimum necessary standard.';
+    COMMENT = 'Limits MEMBER_PHI rows by MEME_MCTR_TYPE per role. Entitlement table (ROW_POLICY_MAP) controls analyst tiers. HIPAA minimum necessary standard.';
 
 ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI
     ADD ROW ACCESS POLICY GOVERNANCE_CA_DEMO.POLICY_STORE.MEMBER_PLAN_ACCESS_POLICY
@@ -533,6 +537,34 @@ GRANT CREATE SCHEMA ON DATABASE GOVERNANCE_CA_DEMO TO ROLE ANALYTICS_INNOVATOR_R
 GRANT USAGE ON DATABASE FACETS_DEV                      TO ROLE DATA_ENGINEER_ROLE;
 GRANT USAGE ON ALL SCHEMAS IN DATABASE FACETS_DEV        TO ROLE DATA_ENGINEER_ROLE;
 GRANT SELECT ON ALL TABLES IN DATABASE FACETS_DEV        TO ROLE DATA_ENGINEER_ROLE;
+
+-- =============================================================================
+-- SECTION J: PRE-BUILT AUDIT ACCESS HISTORY TABLE
+-- Materialized snapshot of the last 90 days from ACCOUNT_USAGE.ACCESS_HISTORY.
+-- ACCESS_HISTORY has a ~30-min ingestion lag and can be slow to query live.
+-- Built at setup time so 03_schema_access_demo.sql can SELECT from it instantly.
+-- =============================================================================
+
+USE ROLE ACCOUNTADMIN;
+USE DATABASE GOVERNANCE_CA_DEMO;
+USE SCHEMA POLICY_STORE;
+
+CREATE OR REPLACE TABLE ACCOUNT_ACCESS_HISTORY AS
+SELECT
+    QUERY_START_TIME,
+    USER_NAME,
+    ROLE_NAME,
+    LEFT(QUERY_TEXT, 200)                                AS query_preview,
+    EXECUTION_STATUS,
+    DIRECT_OBJECTS_ACCESSED[0]:objectName::STRING        AS first_object_accessed,
+    DIRECT_OBJECTS_ACCESSED[0]:objectDomain::STRING      AS object_domain
+FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY
+WHERE QUERY_START_TIME >= DATEADD('day', -90, CURRENT_TIMESTAMP())
+ORDER BY QUERY_START_TIME DESC;
+
+GRANT SELECT ON TABLE GOVERNANCE_CA_DEMO.POLICY_STORE.ACCOUNT_ACCESS_HISTORY
+    TO ROLE DATA_ENGINEER_ROLE;
+
 
 -- =============================================================================
 -- SETUP COMPLETE

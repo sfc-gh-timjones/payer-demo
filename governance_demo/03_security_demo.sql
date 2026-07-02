@@ -131,25 +131,37 @@ SELECT COUNT(*) AS visible_members FROM MEMBER_PHI;
 
 
 -- =============================================================================
--- PART 4: AUDIT LOG — COMPLETE ACCESS HISTORY
--- "Snowflake records every query against MEMBER_PHI — including queries
---  that returned zero rows because of row access policies."
+-- PART 4: AUDIT LOG — PRE-BUILT ACCESS HISTORY
+-- "Snowflake records every query against every object — including queries that
+--  returned zero rows because of row access policies."
+--
+-- The access history table was pre-built during setup (01_governance_setup.sql
+-- Section J) as a 90-day snapshot. SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY has
+-- a ~30-min ingestion lag and can be slow to query live, so we materialize it
+-- at setup time and SELECT from it instantly during the demo.
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
+USE DATABASE GOVERNANCE_CA_DEMO;
+USE SCHEMA POLICY_STORE;
 
--- Full query history against MEMBER_PHI (note: ACCESS_HISTORY has ~30-min lag)
+-- Ensure the table exists (no-op if already built by setup)
+CREATE TABLE IF NOT EXISTS ACCOUNT_ACCESS_HISTORY AS
 SELECT
     QUERY_START_TIME,
     USER_NAME,
     ROLE_NAME,
-    LEFT(QUERY_TEXT, 120)                                       AS query_preview,
-    DIRECT_OBJECTS_ACCESSED[0]:objectName::STRING               AS table_accessed
+    LEFT(QUERY_TEXT, 200)                                AS query_preview,
+    EXECUTION_STATUS,
+    DIRECT_OBJECTS_ACCESSED[0]:objectName::STRING        AS first_object_accessed,
+    DIRECT_OBJECTS_ACCESSED[0]:objectDomain::STRING      AS object_domain
 FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY
-WHERE ARRAY_CONTAINS(
-    'GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI'::VARIANT,
-    DIRECT_OBJECTS_ACCESSED[*].objectName
-)
+WHERE QUERY_START_TIME >= DATEADD('day', -90, CURRENT_TIMESTAMP())
+ORDER BY QUERY_START_TIME DESC;
+
+-- Last 30 queries in the account
+SELECT *
+FROM ACCOUNT_ACCESS_HISTORY
 ORDER BY QUERY_START_TIME DESC
 LIMIT 30;
 
@@ -160,19 +172,15 @@ SELECT
     COUNT(*)                            AS query_count,
     MIN(QUERY_START_TIME)               AS first_access,
     MAX(QUERY_START_TIME)               AS last_access
-FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY
-WHERE ARRAY_CONTAINS(
-    'GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI'::VARIANT,
-    DIRECT_OBJECTS_ACCESSED[*].objectName
-)
+FROM ACCOUNT_ACCESS_HISTORY
 GROUP BY ROLE_NAME, USER_NAME
 ORDER BY query_count DESC;
 
 -- Talking points:
--- • ACCESS_HISTORY captures every query, including those returning 0 rows (row policy denied)
--- • CalOptima auditors can query this directly — no log export pipeline required
+-- • Every query is captured — including those that returned 0 rows due to row policies
+-- • CalOptima auditors query this table directly — no log export pipeline needed
 -- • HIPAA requires audit logs of all PHI access: Snowflake provides this natively
--- • When the REVOKE fired and returned "not authorized" — that's in ACCESS_HISTORY too
+-- • The REVOKE and subsequent "not authorized" error is in here too
 
 
 -- =============================================================================

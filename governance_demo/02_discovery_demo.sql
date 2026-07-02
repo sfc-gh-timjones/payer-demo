@@ -7,14 +7,15 @@
 --   zFACETS_DEV_CLONE.SILVER.MEMBER  — the demo table (governance applied here)
 --   GOVERNANCE_CA_DEMO.POLICY_STORE  — tag, masking policies, row access policy
 --
--- SETUP REFERENCE: 01_governance_setup.sql
---   Classification tag + profile:  Section B
---   AI classification run (clone): Section C
---   Masking policies (STRING/DATE): Section D
---   Policies attached to tag:      Section E
---   Manual PHI tags:               Section F
---   Row access policy:             Section G
+-- SETUP REFERENCES (01_governance_setup.sql):
+--   Tags + classification:  Section B (line 106), Section C (line 200)
+--   Masking policies:       Section D (line 225), Section E (line 352)
+--   Manual PHI tags:        Section F (line 369)
+--   Row access policy:      Section G (line 421)
+--   Role grants:            Section H (line 481)
 -- =============================================================================
+
+USE ROLE ACCOUNTADMIN;
 
 USE DATABASE zFACETS_DEV_CLONE;
 USE SCHEMA SILVER;
@@ -23,14 +24,13 @@ USE WAREHOUSE WH_XS;
 
 -- =============================================================================
 -- PART 1: TAGS — SNOWFLAKE AUTOMATICALLY IDENTIFIES SENSITIVE DATA
--- "Before we enforce anything, we need to know what's sensitive.
---  Snowflake's AI scanned every column and assigned a classification level
+-- Setup ref: 01_governance_setup.sql Section B (line 106) — tag + profile
+--            Section C (line 200) — SYSTEM$CLASSIFY run on clone
+-- "Snowflake's AI scanned every column and assigned a classification level
 --  automatically. Let's look at the raw data first, then see what was found."
 -- =============================================================================
 
 -- Step 1a: Show the raw problem — PHI is fully exposed with no controls
-USE ROLE ACCOUNTADMIN;
-
 SELECT
     MEME_ID,
     MEME_LAST_NAME,
@@ -46,7 +46,6 @@ ORDER BY MEME_ID
 LIMIT 10;
 
 -- Step 1b: Show the DATA_CLASSIFICATION tags applied by setup
--- (01_governance_setup.sql Section C ran SYSTEM$CLASSIFY with auto_tag: true)
 SELECT
     COLUMN_NAME,
     TAG_VALUE AS classification_level
@@ -65,10 +64,15 @@ ORDER BY
         WHEN 'PUBLIC'     THEN 5
     END,
     COLUMN_NAME;
--- Talking point: Snowflake AI scanned 29 columns and labeled every
--- HIPAA PHI element automatically. No business rules written. No manual cataloging.
+-- AI scanned 29 columns and labeled every HIPAA PHI element automatically.
+-- No business rules written. No manual column cataloging.
 
 -- Step 1c: Tag propagation — labels follow data through CTAS automatically
+-- The USE ROLE switch to DATA_ENGINEER_ROLE here is intentional:
+-- it shows that even when an ENGINEER (not admin) creates a copy,
+-- the governance labels follow without any additional steps.
+-- Setup ref: tag created with PROPAGATE = ON_DEPENDENCY_AND_DATA_MOVEMENT
+--            (01_governance_setup.sql Section B, line ~129)
 USE ROLE DATA_ENGINEER_ROLE;
 
 CREATE OR REPLACE TABLE zFACETS_DEV_CLONE.SILVER.MEMBER_ANALYTICS_COPY
@@ -90,17 +94,28 @@ ORDER BY
         WHEN 'PII' THEN 1 WHEN 'RESTRICTED' THEN 2
         WHEN 'SENSITIVE' THEN 3 WHEN 'INTERNAL' THEN 4
     END, COLUMN_NAME;
--- Tags propagated to the copy automatically — zero manual tagging.
--- Created with: PROPAGATE = ON_DEPENDENCY_AND_DATA_MOVEMENT (Section B)
+-- Tags propagated to the engineer's copy — zero manual tagging.
 
 
 -- =============================================================================
 -- PART 2: COLUMN-LEVEL MASKING
--- "Now that we've tagged the data, the masking policies enforce automatically.
---  Every role runs the exact same SELECT — Snowflake handles the rest."
+-- Setup ref: 01_governance_setup.sql Section D (line 225) — masking policies
+--            Section E (line 352) — policies attached to tag
+--            Section F (line 369) — manual PHI tags on MEMBER columns
+-- "Every role runs the exact same SELECT — Snowflake handles the rest."
 --
--- HOW TO RUN: Click the USE ROLE line for the role you want, run just that line,
--- then run the SELECT below. Repeat to compare views.
+-- HOW TO RUN: Click the USE ROLE line for the role you want and run just that
+-- line, then run the SELECT below. Repeat to compare views.
+--
+-- Role privilege matrix:
+-- ┌──────────────────────────┬─────────────┬──────────────┬───────────────────┬──────────────────┐
+-- │ Classification           │ ACCOUNTADMIN│ DATA_ENGINEER│ ANALYTICS_INNOVATOR│ BUSINESS_ANALYST │
+-- ├──────────────────────────┼─────────────┼──────────────┼───────────────────┼──────────────────┤
+-- │ PII   (MECD_AID_CD/BIC)  │ Full        │ Full         │ ***PHI REDACTED***│ ***PHI REDACTED**│
+-- │ RESTRICTED (DOB)         │ Full        │ Full         │ Year only         │ NULL             │
+-- │ SENSITIVE (name, sex)    │ Full        │ Full         │ First initial+*** │ ***SENSITIVE***  │
+-- │ INTERNAL                 │ Full        │ Full         │ Full              │ Full             │
+-- └──────────────────────────┴─────────────┴──────────────┴───────────────────┴──────────────────┘
 -- =============================================================================
 
 USE DATABASE zFACETS_DEV_CLONE;
@@ -127,14 +142,16 @@ FROM MEMBER
 ORDER BY MEME_ID
 LIMIT 10;
 
--- Talking point: same SQL — no WHERE clauses, no CASE statements, no app-level logic.
--- Masking is enforced at the Snowflake layer, invisible to the analyst, impossible to bypass.
+-- Same SQL — no WHERE clauses, no CASE statements, no app-level logic.
+-- Masking is enforced at the Snowflake layer, invisible to the analyst.
 
 
 -- =============================================================================
 -- PART 3: ROW-LEVEL SECURITY — PLAN POPULATION ACCESS CONTROL
--- "Column masking controls what you SEE in a row.
---  Row-level security controls which populations you can ACCESS at all."
+-- Setup ref: 01_governance_setup.sql Section G (line 421) — row access policy
+--            ROW_POLICY_MAP table + MEMBER_PLAN_ACCESS_POLICY created there
+-- "Column masking controls what you SEE. Row-level security controls
+--  which populations you can ACCESS at all."
 -- =============================================================================
 
 USE DATABASE zFACETS_DEV_CLONE;
@@ -164,13 +181,14 @@ ORDER BY member_count DESC;
 -- ANALYTICS_INNOVATOR:          DSNP + COMM only — MEDCAID row is gone entirely
 -- BUSINESS_ANALYST:             COMM only — ~30,593 rows
 
--- Confirm MEDCAID is invisible to Analytics Innovator (run this as that role)
+-- Confirm MEDCAID is invisible to Analytics Innovator — returns no rows
 USE ROLE ANALYTICS_INNOVATOR_ROLE;
-SELECT COUNT(*) AS medcaid_rows
+SELECT *
 FROM MEMBER
-WHERE MEME_MCTR_TYPE = 'MEDCAID';
--- Returns 0 — row policy fires silently. No error. The analyst doesn't know MEDCAID exists.
--- HIPAA minimum necessary: access is restricted without revealing what was restricted.
+WHERE MEME_MCTR_TYPE = 'MEDCAID'
+LIMIT 5;
+-- Returns 0 rows — row policy fires silently. No error.
+-- The analyst doesn't know MEDCAID exists. HIPAA minimum necessary.
 
 
 -- =============================================================================

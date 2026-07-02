@@ -550,3 +550,6 @@ GRANT SELECT ON TABLE GOVERNANCE_CA_DEMO.POLICY_STORE.ACCOUNT_ACCESS_HISTORY
 -- Next: Run 02_discovery_demo.sql (tags → column masking → row-level security)
 --       Run 03_schema_access_demo.sql (schema access, separation of duties, audit)
 -- =============================================================================
+
+USE ROLE ACCOUNTADMIN;
+SELECT 'Setup complete — CalOptima governance demo deployed successfully.' AS status;

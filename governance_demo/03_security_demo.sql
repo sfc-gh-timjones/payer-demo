@@ -13,6 +13,8 @@
 --   Audit table:        Section I
 -- =============================================================================
 
+USE ROLE ACCOUNTADMIN;
+
 USE DATABASE GOVERNANCE_CA_DEMO;
 USE SCHEMA POLICY_STORE;
 USE WAREHOUSE WH_XS;
@@ -95,23 +97,26 @@ USE ROLE BUSINESS_ANALYST_ROLE;
 SELECT COUNT(*) AS visible_members FROM zFACETS_DEV_CLONE.SILVER.MEMBER;
 -- Expected: ~30,593 (COMM plan only — row policy enforced)
 
--- Revoke access as ACCOUNTADMIN — takes effect immediately
+-- Revoke DATABASE access from BUSINESS_ANALYST_ROLE
+-- Using database-level REVOKE for a clean, unambiguous demonstration
+-- (revoking just table SELECT can have edge cases; revoking the database
+-- is definitive — the role can't reach any object inside it)
 USE ROLE ACCOUNTADMIN;
 
-REVOKE SELECT ON TABLE zFACETS_DEV_CLONE.SILVER.MEMBER
+REVOKE USAGE ON DATABASE zFACETS_DEV_CLONE
     FROM ROLE BUSINESS_ANALYST_ROLE;
 
 -- Next query after revoke is denied instantly — no lag
 USE ROLE BUSINESS_ANALYST_ROLE;
 
 SELECT COUNT(*) AS visible_members FROM zFACETS_DEV_CLONE.SILVER.MEMBER;
--- → Error: "Object 'MEMBER' does not exist or not authorized."
--- Talking point: zero lag. No session invalidation. Snowflake re-checks grants on every query.
+-- → Error: "Database 'ZFACETS_DEV_CLONE' does not exist or not authorized."
+-- Talking point: zero lag. No session invalidation. Snowflake re-checks on every query.
 
 -- Restore access for next demo run
 USE ROLE ACCOUNTADMIN;
 
-GRANT SELECT ON TABLE zFACETS_DEV_CLONE.SILVER.MEMBER
+GRANT USAGE ON DATABASE zFACETS_DEV_CLONE
     TO ROLE BUSINESS_ANALYST_ROLE;
 
 USE ROLE BUSINESS_ANALYST_ROLE;

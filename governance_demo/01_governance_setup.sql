@@ -1,7 +1,8 @@
 -- =============================================================================
 -- FILE: 01_governance_setup.sql
 -- PURPOSE: CalOptima RFP 26-038 | Topic 4 (Data Governance) + Topic 5 (Security)
---          One-time setup — run top-to-bottom as ACCOUNTADMIN before any demo.
+--          Teardown + rebuild — safe to run repeatedly. Every execution drops all
+--          demo objects and rebuilds from scratch. Run top-to-bottom as ACCOUNTADMIN.
 --
 -- ROLES (3 demo roles; ACCOUNTADMIN plays the admin/governance persona):
 --   ACCOUNTADMIN          → Full access, all PHI, all plan types (admin view)
@@ -10,15 +11,15 @@
 --   BUSINESS_ANALYST_ROLE → Full masking, COMM only
 --
 -- DEMO SCRIPTS REFERENCE (by section):
---   Section A  Lines   1-60   → Roles, databases, warehouses, clone
---   Section B  Lines  62-145  → DATA_CLASSIFICATION tag + classification profile
---   Section C  Lines 147-180  → AI classification run on zFACETS_DEV_CLONE
---   Section D  Lines 182-295  → Tag-based masking policies (STRING / DATE / TIMESTAMP)
---   Section E  Lines 297-310  → Attach masking policies to tag
---   Section F  Lines 312-350  → MEMBER_PHI table in PROTECTED schema
---   Section G  Lines 352-400  → Manual PII/PHI tags on MEMBER_PHI columns
---   Section H  Lines 402-455  → Row access policy (MEME_MCTR_TYPE plan-type filter)
---   Section I  Lines 457-530  → Role grants
+--   Section A → Roles, databases, warehouses, clone
+--   Section B → DATA_CLASSIFICATION tag + classification profile
+--   Section C → AI classification run on zFACETS_DEV_CLONE
+--   Section D → Tag-based masking policies (STRING / DATE / TIMESTAMP)
+--   Section E → Attach masking policies to tag
+--   Section F → MEMBER_PHI table in PROTECTED schema
+--   Section G → Manual PII/PHI tags on MEMBER_PHI columns
+--   Section H → Row access policy (MEME_MCTR_TYPE plan-type filter)
+--   Section I → Role grants
 --
 -- SOURCE TABLE: FACETS_DEV.SILVER.MEMBER (29 columns, ~92k rows)
 -- PHI TABLE:    GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI (managed access schema)
@@ -27,8 +28,34 @@
 
 
 -- =============================================================================
+-- TEARDOWN — runs first on every execution
+-- Drops all CalOptima governance demo objects. Safe to run on first run (all
+-- statements guarded with IF EXISTS). Dropping the databases cascades and removes
+-- all schemas, tables, tags, masking policies, row access policies, functions,
+-- and classification profiles contained within them — no manual detaching needed.
+-- =============================================================================
+
+USE ROLE ACCOUNTADMIN;
+
+-- Demo databases (cascade drops all objects inside)
+DROP DATABASE IF EXISTS GOVERNANCE_CA_DEMO;
+DROP DATABASE IF EXISTS zFACETS_DEV_CLONE;
+
+-- Demo roles (drop in leaf-first order to avoid hierarchy conflicts)
+DROP ROLE IF EXISTS BUSINESS_ANALYST_ROLE;
+DROP ROLE IF EXISTS ANALYTICS_INNOVATOR_ROLE;
+DROP ROLE IF EXISTS DATA_ENGINEER_ROLE;
+
+SELECT 'Teardown complete — CalOptima governance demo objects removed. Rebuilding...' AS status;
+
+
+-- =============================================================================
+-- BUILD
+-- =============================================================================
+
+
+-- =============================================================================
 -- SECTION A: ROLES, DATABASES, WAREHOUSES, CLONE
--- Lines 1-60
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -83,7 +110,6 @@ CREATE SCHEMA IF NOT EXISTS GOVERNANCE_CA_DEMO.POLICY_STORE
 
 -- =============================================================================
 -- SECTION B: DATA_CLASSIFICATION TAG + CALOPTIMA CLASSIFICATION PROFILE
--- Lines 62-145
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -178,7 +204,6 @@ CREATE OR REPLACE SNOWFLAKE.DATA_PRIVACY.CLASSIFICATION_PROFILE
 
 -- =============================================================================
 -- SECTION C: AI CLASSIFICATION APPLIED TO CLONE
--- Lines 147-180
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -204,7 +229,6 @@ CALL SYSTEM$CLASSIFY(
 
 -- =============================================================================
 -- SECTION D: TAG-BASED MASKING POLICIES
--- Lines 182-295
 --
 -- Three policies cover all column data types in MEMBER_PHI.
 -- Attached to the DATA_CLASSIFICATION tag once (Section E) — every tagged column
@@ -333,7 +357,6 @@ COMMENT = 'TIMESTAMP_NTZ masking on DATA_CLASSIFICATION tag. Split pattern (phi_
 
 -- =============================================================================
 -- SECTION E: ATTACH MASKING POLICIES TO THE TAG
--- Lines 297-310
 --
 -- One-time attachment: every column tagged DATA_CLASSIFICATION is now masked
 -- automatically according to its data type. No per-column ALTER TABLE needed.
@@ -351,7 +374,6 @@ ALTER TAG DATA_CLASSIFICATION SET MASKING POLICY DATA_CLASSIFICATION_MASK_TIMEST
 
 -- =============================================================================
 -- SECTION F: MEMBER_PHI TABLE IN PROTECTED SCHEMA
--- Lines 312-350
 --
 -- Isolated copy of FACETS_DEV.SILVER.MEMBER. The governance demo runs against
 -- this table — decoupled from the live Openflow CDC pipeline.
@@ -374,7 +396,6 @@ SELECT
 
 -- =============================================================================
 -- SECTION G: MANUAL PII/PHI TAGS ON MEMBER_PHI COLUMNS
--- Lines 352-400
 --
 -- The discovery demo (02_discovery_demo.sql) shows AI auto-classification on the clone.
 -- MEMBER_PHI columns are tagged manually here so the masking demo fires reliably
@@ -423,7 +444,6 @@ ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI MODIFY COLUMN ACTIVE_PCP_NAM
 
 -- =============================================================================
 -- SECTION H: ROW ACCESS POLICY — PLAN TYPE FILTER
--- Lines 402-455
 --
 -- Filters MEMBER_PHI rows by MEME_MCTR_TYPE based on role.
 -- Plan types: DSNP (30,866 rows) | MEDCAID (30,642 rows) | COMM (30,593 rows)
@@ -479,7 +499,6 @@ ALTER TABLE GOVERNANCE_CA_DEMO.PROTECTED.MEMBER_PHI
 
 -- =============================================================================
 -- SECTION I: ROLE GRANTS
--- Lines 457-530
 --
 -- All grants on GOVERNANCE_CA_DEMO.PROTECTED objects flow through ACCOUNTADMIN
 -- (managed access schema). DATA_ENGINEER_ROLE cannot grant PHI access to others.

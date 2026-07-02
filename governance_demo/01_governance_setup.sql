@@ -64,7 +64,7 @@ SELECT 'Teardown complete — CalOptima governance demo objects removed. Rebuild
 USE ROLE ACCOUNTADMIN;
 USE SECONDARY ROLES NONE;
 
- ───────────────────────────────────────────────────────────────
+-- ── Demo roles ───────────────────────────────────────────────────────────────
 -- ACCOUNTADMIN is used for the "admin view" persona in demo scripts.
 -- 3 additional roles cover the engineer → analyst → business analyst gradient.
 CREATE ROLE IF NOT EXISTS DATA_ENGINEER_ROLE

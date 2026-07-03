@@ -69,7 +69,7 @@ def handler(session, user_count):
     benchmark_sql = """
         SELECT
             RANDOM()                                               AS run_id,
-            L_RETURNFLAG,
+            /* CALOPTIMA_CONCURRENCY_DEMO */ L_RETURNFLAG,
             L_LINESTATUS,
             SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT))               AS net_revenue,
             SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT) * (1 + L_TAX)) AS total_charge,
@@ -150,7 +150,7 @@ SELECT
 FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
 WHERE WAREHOUSE_NAME = 'CALOPTIMA_CONCURRENCY_WH'
   AND START_TIME > DATEADD('hour', -1, CURRENT_TIMESTAMP())
-  AND QUERY_TYPE = 'SELECT'
+  AND QUERY_TEXT ILIKE '%CALOPTIMA_CONCURRENCY_DEMO%'
 GROUP BY USER_NAME, WAREHOUSE_SIZE, CLUSTER_NUMBER
 ORDER BY CLUSTER_NUMBER;
 -- NOTE: Tasks execute as USER_NAME = 'SYSTEM', not your own user.

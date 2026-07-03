@@ -53,3 +53,25 @@ SELECT COUNT(*) AS lineitem_rows FROM SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.LINEITEM
 DROP WAREHOUSE IF EXISTS CALOPTIMA_SETUP_WH;
 
 SELECT 'Setup complete — SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.LINEITEM is ready.' AS status;
+
+
+-- =============================================================================
+-- STEP 3: CREATE CLEANUP PROCEDURE
+-- =============================================================================
+
+CREATE OR REPLACE PROCEDURE SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(user_count INTEGER)
+RETURNS VARCHAR
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.10'
+PACKAGES = ('snowflake-snowpark-python')
+HANDLER = 'handler'
+AS
+$$
+def handler(session, user_count):
+    for i in range(1, user_count + 1):
+        task_name = f"CONCURRENT_USER_{i:02d}"
+        session.sql(f"DROP TASK IF EXISTS {task_name}").collect()
+    return f"{user_count} tasks dropped"
+$$;
+
+SELECT 'Cleanup procedure ready.' AS status;

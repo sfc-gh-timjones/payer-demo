@@ -107,7 +107,7 @@ $$;
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 SHOW PARAMETERS LIKE 'USE_CACHED_RESULT';
 
-CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(30);
+CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(100);
 -- Submits concurrent query executions to CALOPTIMA_CONCURRENCY_WH.
 
 SHOW WAREHOUSES LIKE 'CALOPTIMA_CONCURRENCY_WH';
@@ -186,22 +186,7 @@ ORDER BY SCHEDULED_TIME;
 -- CLEANUP
 -- =============================================================================
 
-CREATE OR REPLACE PROCEDURE SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(user_count INTEGER)
-RETURNS VARCHAR
-LANGUAGE PYTHON
-RUNTIME_VERSION = '3.10'
-PACKAGES = ('snowflake-snowpark-python')
-HANDLER = 'handler'
-AS
-$$
-def handler(session, user_count):
-    for i in range(1, user_count + 1):
-        task_name = f"CONCURRENT_USER_{i:02d}"
-        session.sql(f"DROP TASK IF EXISTS {task_name}").collect()
-    return f"{user_count} tasks dropped"
-$$;
-
-CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(50);
+CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(100);
 DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(INTEGER);
 DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(INTEGER);
 DROP WAREHOUSE IF EXISTS CALOPTIMA_CONCURRENCY_WH;

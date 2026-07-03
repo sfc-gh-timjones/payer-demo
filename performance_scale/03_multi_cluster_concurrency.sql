@@ -32,16 +32,16 @@ USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF100;
 
 CREATE OR REPLACE WAREHOUSE CALOPTIMA_CONCURRENCY_WH
     WAREHOUSE_SIZE    = SMALL
+    GENERATION = '2'
     MIN_CLUSTER_COUNT = 1           -- idles at 1 cluster at rest (cost-efficient)
     MAX_CLUSTER_COUNT = 4           -- scales out to 4 under heavy concurrent load
     SCALING_POLICY    = STANDARD    -- adds clusters when queries start queueing
-    AUTO_SUSPEND      = 60
+    AUTO_SUSPEND      = 30
     AUTO_RESUME       = TRUE
     COMMENT           = 'Multi-cluster: auto-scales 1→4 during open enrollment surge';
 
 SHOW WAREHOUSES LIKE 'CALOPTIMA_CONCURRENCY_WH';
 -- Key columns: min_cluster_count=1, max_cluster_count=4, scaling_policy=STANDARD
--- Talking point: this is the entire infrastructure change for open enrollment.
 -- No hardware provisioning. No capacity planning. No on-call engineer.
 
 
@@ -99,7 +99,7 @@ def handler(session, user_count):
     return f"{user_count} concurrent users submitted to CALOPTIMA_CONCURRENCY_WH"
 $$;
 
--- ── Fire concurrent load ──────────────────────────────────────────────────────
+-- ── Fire concurrent load 
 USE WAREHOUSE WH_XS;   -- use a separate WH so this session stays responsive
 
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;

@@ -15,19 +15,21 @@
 USE ROLE ACCOUNTADMIN;
 USE SECONDARY ROLES NONE;
 
-
 -- =============================================================================
 -- PART 1: SETUP
 -- =============================================================================
 
-CREATE OR REPLACE WAREHOUSE CALOPTIMA_PERF_WH
-    WAREHOUSE_SIZE = XSMALL
-    AUTO_SUSPEND   = 60
+CREATE OR REPLACE WAREHOUSE WH_ENTERPRISE_ANALYTICS
+    WAREHOUSE_SIZE = MEDIUM
+    AUTO_SUSPEND   = 30
     AUTO_RESUME    = TRUE
     COMMENT        = 'CalOptima performance demo — resize during demo to show elastic scaling';
 
-USE WAREHOUSE CALOPTIMA_PERF_WH;
-USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF100;
+USE WAREHOUSE WH_ENTERPRISE_ANALYTICS;
+-- USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF1; --scale factor of 1
+-- USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF10; --scale factor of 10
+-- USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF100; --scale factor of 100 
+USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF1000; --scale factor of 1000
 
 
 -- =============================================================================
@@ -46,12 +48,14 @@ SHOW PARAMETERS LIKE 'USE_CACHED_RESULT';
 -- Swap sizes to compare performance.
 -- =============================================================================
 
-ALTER WAREHOUSE CALOPTIMA_PERF_WH SET WAREHOUSE_SIZE = XSMALL;
--- ALTER WAREHOUSE CALOPTIMA_PERF_WH SET WAREHOUSE_SIZE = SMALL;
--- ALTER WAREHOUSE CALOPTIMA_PERF_WH SET WAREHOUSE_SIZE = MEDIUM;
--- ALTER WAREHOUSE CALOPTIMA_PERF_WH SET WAREHOUSE_SIZE = LARGE;
--- ALTER WAREHOUSE CALOPTIMA_PERF_WH SET WAREHOUSE_SIZE = XLARGE;
+-- ALTER WAREHOUSE WH_ENTERPRISE_ANALYTICS SET WAREHOUSE_SIZE = XSMALL;
+-- ALTER WAREHOUSE WH_ENTERPRISE_ANALYTICS SET WAREHOUSE_SIZE = SMALL;
+-- ALTER WAREHOUSE WH_ENTERPRISE_ANALYTICS SET WAREHOUSE_SIZE = MEDIUM;
+-- ALTER WAREHOUSE WH_ENTERPRISE_ANALYTICS SET WAREHOUSE_SIZE = LARGE;
+-- ALTER WAREHOUSE WH_ENTERPRISE_ANALYTICS SET WAREHOUSE_SIZE = XLARGE;
 
+SELECT 'Record Count: ' || TO_VARCHAR(COUNT(*), 'FM999,999,999,999')
+FROM LINEITEM;
 
 -- =============================================================================
 -- PART 4: BENCHMARK QUERY — RUN AFTER EACH SIZE CHANGE
@@ -66,7 +70,7 @@ SELECT
     SUM(L_QUANTITY)                                           AS sum_qty,
     SUM(L_EXTENDEDPRICE)                                      AS sum_base_price,
     SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT))                   AS sum_disc_price,
-    SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT) * (1 + L_TAX))    AS sum_charge,
+    SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT) * (1 + L_TAX))     AS sum_charge,
     AVG(L_QUANTITY)                                           AS avg_qty,
     AVG(L_EXTENDEDPRICE)                                      AS avg_price,
     AVG(L_DISCOUNT)                                           AS avg_disc,
@@ -75,10 +79,6 @@ FROM LINEITEM
 WHERE L_SHIPDATE <= DATEADD(DAY, -90, TO_DATE('1998-12-01'))
 GROUP BY  L_RETURNFLAG, L_LINESTATUS
 ORDER BY  L_RETURNFLAG, L_LINESTATUS;
-
--- Expected elapsed times (SF100, 600M rows):
---   XSmall → ~30-45 sec   Small → ~15-20 sec
---   Medium → ~8-12 sec    Large → ~4-6 sec
 
 
 -- =============================================================================
@@ -94,7 +94,7 @@ SELECT
     BYTES_SCANNED / 1e9          AS gb_scanned,
     START_TIME
 FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
-WHERE WAREHOUSE_NAME = 'CALOPTIMA_PERF_WH'
+WHERE WAREHOUSE_NAME = 'WH_ENTERPRISE_ANALYTICS'
   AND QUERY_TEXT ILIKE '%sum_charge%'
   AND START_TIME > DATEADD('hour', -1, CURRENT_TIMESTAMP())
 ORDER BY START_TIME;
@@ -107,7 +107,5 @@ ORDER BY START_TIME;
 -- CLEANUP
 -- =============================================================================
 
-DROP WAREHOUSE IF EXISTS CALOPTIMA_PERF_WH;
+DROP WAREHOUSE IF EXISTS WH_ENTERPRISE_ANALYTICS;
 ALTER SESSION UNSET USE_CACHED_RESULT;
-
-SELECT 'Warehouse sizing demo complete.' AS status;

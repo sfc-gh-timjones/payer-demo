@@ -25,27 +25,26 @@ USE SECONDARY ROLES NONE;
 -- =============================================================================
 
 CREATE OR REPLACE WAREHOUSE CALOPTIMA_EXEC_WH
-    WAREHOUSE_SIZE = SMALL   AUTO_SUSPEND = 60  AUTO_RESUME = TRUE
+    WAREHOUSE_SIZE = XSMALL   AUTO_SUSPEND = 30  AUTO_RESUME = TRUE
     COMMENT = 'Executive dashboards and board-level population health reports';
 
 CREATE OR REPLACE WAREHOUSE CALOPTIMA_ENG_WH
-    WAREHOUSE_SIZE = LARGE   AUTO_SUSPEND = 60  AUTO_RESUME = TRUE
+    WAREHOUSE_SIZE = LARGE   AUTO_SUSPEND = 30  AUTO_RESUME = TRUE
     COMMENT = 'Data engineering — ETL, CDC, bulk claims transforms';
 
 CREATE OR REPLACE WAREHOUSE CALOPTIMA_ANALYST_WH
-    WAREHOUSE_SIZE = MEDIUM  AUTO_SUSPEND = 60  AUTO_RESUME = TRUE
+    WAREHOUSE_SIZE = MEDIUM  AUTO_SUSPEND = 30  AUTO_RESUME = TRUE
     COMMENT = 'Analytics Innovators — ad-hoc and exploratory analysis';
 
 CREATE OR REPLACE WAREHOUSE CALOPTIMA_BA_WH
-    WAREHOUSE_SIZE = SMALL   AUTO_SUSPEND = 60  AUTO_RESUME = TRUE
+    WAREHOUSE_SIZE = SMALL   AUTO_SUSPEND = 30  AUTO_RESUME = TRUE
     COMMENT = 'Business Analysts — standard reporting and dashboards';
 
 CREATE OR REPLACE WAREHOUSE CALOPTIMA_ML_WH
-    WAREHOUSE_SIZE = MEDIUM  AUTO_SUSPEND = 60  AUTO_RESUME = TRUE
+    WAREHOUSE_SIZE = MEDIUM  AUTO_SUSPEND = 30  AUTO_RESUME = TRUE
     COMMENT = 'Data Science — ML feature engineering and model scoring';
 
 SHOW WAREHOUSES LIKE 'CALOPTIMA%';
-
 
 -- =============================================================================
 -- PART 2: ISOLATION PROOF (run after all 5 tabs have finished)

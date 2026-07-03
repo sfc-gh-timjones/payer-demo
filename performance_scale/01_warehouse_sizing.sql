@@ -77,14 +77,19 @@ ALTER WAREHOUSE CALOPTIMA_PERF_WH SET WAREHOUSE_SIZE = SMALL;
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 
 SELECT COUNT(*) AS total_claim_lines FROM LINEITEM;
--- Small: should be roughly half the XSmall time
 
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 
 SELECT
     L_RETURNFLAG                                              AS return_flag,
     L_LINESTATUS                                              AS line_status,
+    SUM(L_QUANTITY)                                           AS sum_qty,
+    SUM(L_EXTENDEDPRICE)                                      AS sum_base_price,
+    SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT))                   AS sum_disc_price,
     SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT) * (1 + L_TAX))    AS sum_charge,
+    AVG(L_QUANTITY)                                           AS avg_qty,
+    AVG(L_EXTENDEDPRICE)                                      AS avg_price,
+    AVG(L_DISCOUNT)                                           AS avg_disc,
     COUNT(*)                                                  AS count_order
 FROM LINEITEM
 WHERE L_SHIPDATE <= DATEADD(DAY, -90, TO_DATE('1998-12-01'))
@@ -96,14 +101,19 @@ ALTER WAREHOUSE CALOPTIMA_PERF_WH SET WAREHOUSE_SIZE = MEDIUM;
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 
 SELECT COUNT(*) AS total_claim_lines FROM LINEITEM;
--- Medium: roughly half the Small time
 
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 
 SELECT
     L_RETURNFLAG                                              AS return_flag,
     L_LINESTATUS                                              AS line_status,
+    SUM(L_QUANTITY)                                           AS sum_qty,
+    SUM(L_EXTENDEDPRICE)                                      AS sum_base_price,
+    SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT))                   AS sum_disc_price,
     SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT) * (1 + L_TAX))    AS sum_charge,
+    AVG(L_QUANTITY)                                           AS avg_qty,
+    AVG(L_EXTENDEDPRICE)                                      AS avg_price,
+    AVG(L_DISCOUNT)                                           AS avg_disc,
     COUNT(*)                                                  AS count_order
 FROM LINEITEM
 WHERE L_SHIPDATE <= DATEADD(DAY, -90, TO_DATE('1998-12-01'))

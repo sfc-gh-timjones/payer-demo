@@ -1,23 +1,23 @@
 -- =============================================================================
 -- FILE: 03_multi_cluster_concurrency.sql
 -- PURPOSE: CalOptima RFP 26-038 | Performance — High Concurrency / Multi-Cluster
---          Simulates 100+ concurrent users hitting the same warehouse.
+--          Simulates N concurrent users via Snowflake Tasks (genuinely async).
 --          Shows auto scale-out and scale-in via WAREHOUSE_EVENTS_HISTORY.
 --
 -- DATA: SNOWFLAKE_SAMPLE_DATA.TPCH_SF100 (600M rows)
 --
+-- WHY TASKS (NOT A LOOP):
+--   EXECUTE TASK is asynchronous — it fires the task and returns immediately.
+--   Calling it N times in sequence submits N concurrent executions to the
+--   warehouse. A loop inside a stored procedure would serialize queries;
+--   tasks run independently on the warehouse and trigger genuine concurrency.
+--
 -- DEMO FLOW:
---   1. Create a multi-cluster warehouse (max 4 clusters)
---   2. Fire concurrent query load via a stored procedure
---   3. Show auto scale-out events (new clusters coming online)
+--   1. Create multi-cluster warehouse (min=1, max=4)
+--   2. Python stored procedure creates N tasks + fires them all concurrently
+--   3. Show scale-out events (new clusters coming online)
 --   4. Show query distribution across clusters
 --   5. Cleanup
---
--- KEY TALKING POINT:
---   Open enrollment at CalOptima means 200+ staff running eligibility checks
---   simultaneously. A single warehouse queues those requests.
---   A multi-cluster warehouse spawns additional clusters on demand — every user
---   gets immediate compute. When load drops, extra clusters shut down automatically.
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -26,39 +26,44 @@ USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF100;
 
 
 -- =============================================================================
--- PART 1: CREATE A MULTI-CLUSTER WAREHOUSE
--- "One warehouse config. Automatically scales from 1 cluster to 4 under load."
+-- PART 1: CREATE THE MULTI-CLUSTER WAREHOUSE
+-- "One config change — Snowflake handles the rest automatically."
 -- =============================================================================
 
 CREATE OR REPLACE WAREHOUSE CALOPTIMA_CONCURRENCY_WH
     WAREHOUSE_SIZE    = SMALL
-    MIN_CLUSTER_COUNT = 1           -- idles at 1 cluster at rest
-    MAX_CLUSTER_COUNT = 4           -- auto-scales to 4 clusters under load
-    SCALING_POLICY    = STANDARD    -- scale-out when queries start queuing
+    MIN_CLUSTER_COUNT = 1           -- idles at 1 cluster at rest (cost-efficient)
+    MAX_CLUSTER_COUNT = 4           -- scales out to 4 under heavy concurrent load
+    SCALING_POLICY    = STANDARD    -- adds clusters when queries start queueing
     AUTO_SUSPEND      = 60
     AUTO_RESUME       = TRUE
-    COMMENT           = 'Multi-cluster: auto-scales 1→4 during peak concurrency';
+    COMMENT           = 'Multi-cluster: auto-scales 1→4 during open enrollment surge';
 
--- Show the warehouse configuration
 SHOW WAREHOUSES LIKE 'CALOPTIMA_CONCURRENCY_WH';
--- Key fields: min_cluster_count=1, max_cluster_count=4, scaling_policy=STANDARD
--- Talking point: this is the entire infrastructure change needed for open enrollment.
+-- Key columns: min_cluster_count=1, max_cluster_count=4, scaling_policy=STANDARD
+-- Talking point: this is the entire infrastructure change for open enrollment.
+-- No hardware provisioning. No capacity planning. No on-call engineer.
 
 
 -- =============================================================================
--- PART 2: CONCURRENT LOAD SIMULATION
--- Stored procedure fires N queries without waiting between them.
--- Snowflake treats them as concurrent — builds a queue, triggers scale-out.
+-- PART 2: CONCURRENT LOAD — PYTHON STORED PROCEDURE USING TASKS
+--
+-- The procedure creates N Snowflake Tasks, resumes them, then fires all N
+-- via EXECUTE TASK (which is non-blocking/async). This submits N independent
+-- query executions concurrently to CALOPTIMA_CONCURRENCY_WH, building a
+-- queue that triggers the STANDARD scaling policy scale-out.
 -- =============================================================================
 
-CREATE OR REPLACE PROCEDURE simulate_concurrent_load(query_count INTEGER)
+CREATE OR REPLACE PROCEDURE spawn_concurrent_users(user_count INTEGER)
 RETURNS VARCHAR
-LANGUAGE JAVASCRIPT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.10'
+PACKAGES = ('snowflake-snowpark-python')
+HANDLER = 'handler'
 AS
 $$
-    // Fires QUERY_COUNT analytical queries as fast as possible.
-    // Each represents one CalOptima user running an eligibility or claims check.
-    var benchmark_sql = `
+def handler(session, user_count):
+    benchmark_sql = """
         SELECT
             L_RETURNFLAG,
             L_LINESTATUS,
@@ -69,38 +74,50 @@ $$
         FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF100.LINEITEM
         WHERE L_SHIPDATE <= DATEADD(DAY, -90, TO_DATE('1998-12-01'))
         GROUP BY L_RETURNFLAG, L_LINESTATUS
-        ORDER BY L_RETURNFLAG, L_LINESTATUS`;
+        ORDER BY L_RETURNFLAG, L_LINESTATUS
+    """
 
-    var submitted = 0;
-    for (var i = 0; i < QUERY_COUNT; i++) {
-        var stmt = snowflake.createStatement({ sqlText: benchmark_sql });
-        stmt.execute();
-        submitted++;
-    }
-    return submitted + ' concurrent queries submitted to CALOPTIMA_CONCURRENCY_WH';
+    # Step 1: Create one task per simulated concurrent user
+    for i in range(1, user_count + 1):
+        task_name = f"CONCURRENT_USER_{i:02d}"
+        session.sql(f"""
+            CREATE OR REPLACE TASK {task_name}
+                WAREHOUSE = CALOPTIMA_CONCURRENCY_WH
+                SCHEDULE  = 'USING CRON * * 31 2 * UTC'
+            AS
+            {benchmark_sql}
+        """).collect()
+        session.sql(f"ALTER TASK {task_name} RESUME").collect()
+
+    # Step 2: Fire all tasks concurrently
+    # EXECUTE TASK is async — each call returns immediately while the task runs.
+    # Calling it N times submits N concurrent executions to the warehouse.
+    for i in range(1, user_count + 1):
+        task_name = f"CONCURRENT_USER_{i:02d}"
+        session.sql(f"EXECUTE TASK {task_name}").collect()
+
+    return f"{user_count} concurrent users submitted to CALOPTIMA_CONCURRENCY_WH"
 $$;
 
 -- ── Fire concurrent load ──────────────────────────────────────────────────────
-USE WAREHOUSE CALOPTIMA_CONCURRENCY_WH;
-ALTER SESSION SET USE_CACHED_RESULT = FALSE;
+USE WAREHOUSE WH_XS;   -- use a separate WH so this session stays responsive
 
-CALL simulate_concurrent_load(16);
--- Submits 16 concurrent queries — enough to saturate a Small single cluster
--- and trigger STANDARD policy scale-out (cluster 2, then 3 come online).
--- Watch the warehouse activity spinner in Snowsight — clusters appear in real time.
+CALL spawn_concurrent_users(12);
+-- Submits 12 concurrent query executions to CALOPTIMA_CONCURRENCY_WH.
+-- A Small single-cluster warehouse can handle ~4-8 concurrent queries before
+-- queueing builds. STANDARD policy detects the queue and brings Cluster 2
+-- online, then Cluster 3 as load grows.
 
--- Wait ~30-60 seconds for queries to complete, then run the analysis below.
+-- Watch Snowsight: the warehouse card shows cluster count increasing in real time.
+
+-- ── Wait 1-2 min for tasks to complete, then run the analysis below ───────────
 
 
 -- =============================================================================
 -- PART 3: SHOW SCALE-OUT EVENTS
 -- Note: WAREHOUSE_EVENTS_HISTORY has ~2-min ingestion lag.
--- Run this section after the queries complete.
 -- =============================================================================
 
-USE WAREHOUSE WH_XS;
-
--- Scale-out and scale-in events
 SELECT
     TIMESTAMP,
     WAREHOUSE_NAME,
@@ -113,65 +130,79 @@ WHERE WAREHOUSE_NAME = 'CALOPTIMA_CONCURRENCY_WH'
   AND TIMESTAMP > DATEADD('hour', -1, CURRENT_TIMESTAMP())
 ORDER BY TIMESTAMP;
 -- Look for:
---   SCALE_OUT events: "CLUSTER_2_STARTED", "CLUSTER_3_STARTED" → new clusters online
---   SCALE_IN events:  "CLUSTER_3_SUSPENDED" → load cleared, cluster released
--- Talking point: zero manual intervention. Snowflake handled the surge automatically.
+--   SCALE_OUT events: Cluster 2 and 3 coming online as queue builds
+--   SCALE_IN events:  Clusters suspending after load clears
+-- Talking point: zero manual intervention.
+-- Snowflake detected the queue, provisioned extra clusters, released them.
 
 
 -- =============================================================================
 -- PART 4: QUERY DISTRIBUTION ACROSS CLUSTERS
--- "Each cluster handled its share — no user waited in a queue."
+-- "Every user got immediate compute. No one sat in a queue."
 -- =============================================================================
 
 SELECT
     CLUSTER_NUMBER,
-    COUNT(*)                              AS queries_handled,
-    ROUND(AVG(TOTAL_ELAPSED_TIME) / 1000, 1) AS avg_elapsed_sec,
-    ROUND(MIN(TOTAL_ELAPSED_TIME) / 1000, 1) AS min_elapsed_sec,
-    ROUND(MAX(TOTAL_ELAPSED_TIME) / 1000, 1) AS max_elapsed_sec,
-    MIN(START_TIME)                       AS first_query,
-    MAX(END_TIME)                         AS last_query
+    COUNT(*)                                     AS queries_handled,
+    ROUND(AVG(TOTAL_ELAPSED_TIME) / 1000, 1)     AS avg_elapsed_sec,
+    ROUND(MIN(TOTAL_ELAPSED_TIME) / 1000, 1)     AS min_elapsed_sec,
+    ROUND(MAX(TOTAL_ELAPSED_TIME) / 1000, 1)     AS max_elapsed_sec
 FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
 WHERE WAREHOUSE_NAME = 'CALOPTIMA_CONCURRENCY_WH'
   AND START_TIME > DATEADD('hour', -1, CURRENT_TIMESTAMP())
   AND QUERY_TYPE = 'SELECT'
 GROUP BY CLUSTER_NUMBER
 ORDER BY CLUSTER_NUMBER;
--- Expected: queries distributed across clusters 1, 2, 3 (or more)
--- Each cluster ran independently — avg elapsed time is similar across all.
--- A single-cluster warehouse would show: cluster 1 handles everything serially,
--- later queries have high elapsed time from queueing.
+-- Expected: queries spread across clusters 1, 2, 3
+-- Avg elapsed time is similar across clusters — load was balanced.
+-- Without multi-cluster: all 12 queries serialize on cluster 1,
+-- and later queries show much higher elapsed time from queueing.
 
 
 -- =============================================================================
--- PART 5: SINGLE-CLUSTER COMPARISON (OPTIONAL)
--- Recreate warehouse with max_cluster_count=1 and rerun to show the contrast.
+-- PART 5: TASK EXECUTION HISTORY (available sooner than WAREHOUSE_EVENTS)
 -- =============================================================================
 
--- Uncomment to demonstrate the difference:
--- CREATE OR REPLACE WAREHOUSE CALOPTIMA_SINGLE_WH
---     WAREHOUSE_SIZE    = SMALL
---     MIN_CLUSTER_COUNT = 1
---     MAX_CLUSTER_COUNT = 1      -- no scale-out allowed
---     AUTO_SUSPEND      = 60
---     COMMENT           = 'Single cluster — queries queue under load';
---
--- USE WAREHOUSE CALOPTIMA_SINGLE_WH;
--- ALTER SESSION SET USE_CACHED_RESULT = FALSE;
--- CALL simulate_concurrent_load(16);
--- -- Queries will serialize on a single cluster — much higher avg elapsed time
--- -- vs multi-cluster above. Same workload, different architecture.
---
--- DROP WAREHOUSE IF EXISTS CALOPTIMA_SINGLE_WH;
+SELECT
+    NAME                  AS task_name,
+    STATE,
+    SCHEDULED_TIME,
+    QUERY_START_TIME,
+    COMPLETED_TIME,
+    DATEDIFF('second', QUERY_START_TIME, COMPLETED_TIME) AS elapsed_sec,
+    ERROR_MESSAGE
+FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY(
+    SCHEDULED_TIME_RANGE_START => DATEADD('hour', -1, CURRENT_TIMESTAMP()),
+    RESULT_LIMIT => 50
+))
+WHERE NAME ILIKE 'CONCURRENT_USER_%'
+ORDER BY SCHEDULED_TIME;
+-- Shows all 12 tasks fired at roughly the same time — confirming true concurrency.
+-- QUERY_START_TIME values will overlap, not be sequential.
 
 
 -- =============================================================================
 -- CLEANUP
 -- =============================================================================
 
-USE WAREHOUSE WH_XS;
-DROP PROCEDURE IF EXISTS simulate_concurrent_load(INTEGER);
+CREATE OR REPLACE PROCEDURE cleanup_concurrent_users(user_count INTEGER)
+RETURNS VARCHAR
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.10'
+PACKAGES = ('snowflake-snowpark-python')
+HANDLER = 'handler'
+AS
+$$
+def handler(session, user_count):
+    for i in range(1, user_count + 1):
+        task_name = f"CONCURRENT_USER_{i:02d}"
+        session.sql(f"DROP TASK IF EXISTS {task_name}").collect()
+    return f"{user_count} tasks dropped"
+$$;
+
+CALL cleanup_concurrent_users(12);
+DROP PROCEDURE IF EXISTS spawn_concurrent_users(INTEGER);
+DROP PROCEDURE IF EXISTS cleanup_concurrent_users(INTEGER);
 DROP WAREHOUSE IF EXISTS CALOPTIMA_CONCURRENCY_WH;
-ALTER SESSION UNSET USE_CACHED_RESULT;
 
 SELECT 'Multi-cluster concurrency demo complete.' AS status;

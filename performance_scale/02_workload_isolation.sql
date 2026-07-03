@@ -6,16 +6,12 @@
 --
 -- DATA: SNOWFLAKE_SAMPLE_DATA.TPCH_SF100 (600M rows)
 --
--- DEMO FLOW:
---   1. Create 5 named warehouses — one per CalOptima workload persona
---   2. Run persona-appropriate queries on each warehouse independently
---   3. Show per-warehouse credit consumption to prove isolation
---   4. Cleanup
---
--- KEY TALKING POINT:
---   All 5 warehouses read the same underlying LINEITEM data simultaneously.
---   Snowflake's shared-disk architecture means no data copying, no locking.
---   Each team gets dedicated, isolated compute — zero interference.
+-- HOW TO RUN FOR MAXIMUM IMPACT:
+--   Run PART 1 (setup) in any single worksheet first.
+--   Then open 5 Snowsight worksheet tabs — one per workload section below.
+--   Start the heavy ENG query (Tab 2) FIRST. While it's still running,
+--   immediately fire the EXEC query (Tab 1). Tab 1 finishes in seconds.
+--   The audience sees isolation proven visually: Tab 2 is still spinning.
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -24,8 +20,8 @@ USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF100;
 
 
 -- =============================================================================
--- PART 1: CREATE 5 WORKLOAD WAREHOUSES
--- "Every team at CalOptima gets their own compute. One line per warehouse."
+-- PART 1: SETUP — RUN ONCE IN ANY WORKSHEET
+-- Creates all 5 warehouses. Run this before opening the parallel tabs.
 -- =============================================================================
 
 CREATE OR REPLACE WAREHOUSE CALOPTIMA_EXEC_WH
@@ -48,17 +44,22 @@ CREATE OR REPLACE WAREHOUSE CALOPTIMA_ML_WH
     WAREHOUSE_SIZE = MEDIUM  AUTO_SUSPEND = 60  AUTO_RESUME = TRUE
     COMMENT = 'Data Science — ML feature engineering and model scoring';
 
--- Show all 5 warehouses — audience sees the full workload picture
+-- Confirm all 5 warehouses are ready
 SHOW WAREHOUSES LIKE 'CALOPTIMA%';
 
 
 -- =============================================================================
--- PART 2: RUN WORKLOAD-APPROPRIATE QUERIES ON EACH WAREHOUSE
--- "Same data. Five isolated compute layers. Zero interference."
+-- PART 2: PARALLEL ISOLATION DEMO
+-- Open a separate Snowsight worksheet tab for each section below.
+-- Start Tab 2 (ENG heavy job) first, then immediately run Tab 1 (EXEC).
+-- Key moment: Tab 1 finishes in seconds while Tab 2 is still running.
+-- That is workload isolation.
 -- =============================================================================
 
--- ── EXECUTIVE: lightweight population health summary ─────────────────────────
--- Represents: board-level quality metrics dashboard — fast, simple
+-- ┌─────────────────────────────────────────────────────────────────────────┐
+-- │ TAB 1 — EXEC: Executive dashboard query (run WHILE Tab 2 is running)   │
+-- │ Small warehouse. Should finish in ~3-5 seconds.                         │
+-- └─────────────────────────────────────────────────────────────────────────┘
 USE WAREHOUSE CALOPTIMA_EXEC_WH;
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 
@@ -70,11 +71,13 @@ SELECT
 FROM LINEITEM
 GROUP BY L_RETURNFLAG
 ORDER BY total_billed DESC;
--- Small warehouse — fast. Executive never waits for engineers to finish.
+-- Finishes fast on its own Small warehouse — unaffected by whatever else is running.
 
--- ── DATA ENGINEER: heavy bulk aggregation ────────────────────────────────────
--- Represents: nightly claims reconciliation / ETL job — large, slow
--- This runs concurrently with EXEC_WH above — completely isolated
+
+-- ┌─────────────────────────────────────────────────────────────────────────┐
+-- │ TAB 2 — ENG: Heavy ETL/reconciliation job (start this one FIRST)        │
+-- │ Large warehouse. Intentionally slow — represents overnight batch work.  │
+-- └─────────────────────────────────────────────────────────────────────────┘
 USE WAREHOUSE CALOPTIMA_ENG_WH;
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 
@@ -91,26 +94,29 @@ FROM LINEITEM
 GROUP BY L_SUPPKEY, L_RETURNFLAG, L_LINESTATUS
 ORDER BY total_charge DESC
 LIMIT 200;
--- Large warehouse — uses more credits, but that cost stays on ENG_WH.
--- EXEC_WH credit counter is untouched.
 
--- ── ANALYTICS INNOVATOR: exploratory trend analysis ──────────────────────────
--- Represents: ad-hoc population trend analysis
+
+-- ┌─────────────────────────────────────────────────────────────────────────┐
+-- │ TAB 3 — ANALYST: Exploratory trend analysis                             │
+-- └─────────────────────────────────────────────────────────────────────────┘
 USE WAREHOUSE CALOPTIMA_ANALYST_WH;
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 
 SELECT
-    YEAR(L_SHIPDATE)    AS claim_year,
-    MONTH(L_SHIPDATE)   AS claim_month,
-    L_RETURNFLAG        AS claim_status,
-    COUNT(*)            AS claim_count,
+    YEAR(L_SHIPDATE)     AS claim_year,
+    MONTH(L_SHIPDATE)    AS claim_month,
+    L_RETURNFLAG         AS claim_status,
+    COUNT(*)             AS claim_count,
     SUM(L_EXTENDEDPRICE) AS total_revenue,
-    AVG(L_DISCOUNT)     AS avg_discount
+    AVG(L_DISCOUNT)      AS avg_discount
 FROM LINEITEM
 GROUP BY 1, 2, 3
 ORDER BY claim_year, claim_month, claim_status;
 
--- ── BUSINESS ANALYST: standard operational report ────────────────────────────
+
+-- ┌─────────────────────────────────────────────────────────────────────────┐
+-- │ TAB 4 — BUSINESS ANALYST: Standard operational report                   │
+-- └─────────────────────────────────────────────────────────────────────────┘
 USE WAREHOUSE CALOPTIMA_BA_WH;
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 
@@ -125,7 +131,10 @@ WHERE L_SHIPDATE BETWEEN '1996-01-01' AND '1998-12-31'
 GROUP BY L_LINESTATUS
 ORDER BY gross_billed DESC;
 
--- ── ML / DATA SCIENCE: feature engineering (joins, percentiles) ──────────────
+
+-- ┌─────────────────────────────────────────────────────────────────────────┐
+-- │ TAB 5 — ML / DATA SCIENCE: Feature engineering with joins               │
+-- └─────────────────────────────────────────────────────────────────────────┘
 USE WAREHOUSE CALOPTIMA_ML_WH;
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 
@@ -134,7 +143,8 @@ SELECT
     COUNT(L.L_LINENUMBER)                              AS claim_line_count,
     SUM(L.L_EXTENDEDPRICE)                             AS total_billed,
     AVG(L.L_DISCOUNT)                                  AS avg_discount,
-    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY L.L_EXTENDEDPRICE) AS median_claim_amt
+    PERCENTILE_CONT(0.5) WITHIN GROUP
+        (ORDER BY L.L_EXTENDEDPRICE)                   AS median_claim_amt
 FROM ORDERS   O
 JOIN LINEITEM  L ON O.O_ORDERKEY = L.L_ORDERKEY
 GROUP BY O.O_CUSTKEY
@@ -143,12 +153,14 @@ LIMIT 500;
 
 
 -- =============================================================================
--- PART 3: WORKLOAD ISOLATION PROOF — PER-WAREHOUSE CREDIT USAGE
--- Note: WAREHOUSE_METERING_HISTORY has ~2-min lag. Run this after queries complete.
--- "The heavy engineering job consumed its own credits. Executive was unaffected."
+-- PART 3: ISOLATION PROOF — PER-WAREHOUSE CREDIT USAGE
+-- Run in any tab after all queries complete.
+-- Note: WAREHOUSE_METERING_HISTORY has ~2-min ingestion lag.
+-- "The heavy ENG job consumed its own budget. EXEC_WH was completely unaffected."
 -- =============================================================================
 
 USE WAREHOUSE WH_XS;
+ALTER SESSION UNSET USE_CACHED_RESULT;
 
 SELECT
     WAREHOUSE_NAME,
@@ -162,15 +174,15 @@ WHERE WAREHOUSE_NAME ILIKE 'CALOPTIMA%'
 GROUP BY WAREHOUSE_NAME
 ORDER BY compute_credits DESC;
 -- Expected:
---   CALOPTIMA_ENG_WH    → highest credits (Large WH, heavy query)
---   CALOPTIMA_ANALYST_WH/ML_WH → medium (Medium WH)
---   CALOPTIMA_EXEC_WH/BA_WH    → lowest (Small WH, light queries)
--- Talking point: 5 teams worked simultaneously on the same data.
--- No locks. No queuing. No one waiting for anyone else.
+--   CALOPTIMA_ENG_WH     → highest credits (Large WH, heaviest query)
+--   CALOPTIMA_ANALYST_WH / ML_WH → medium
+--   CALOPTIMA_EXEC_WH / BA_WH    → lowest (Small WH, lightweight queries)
+-- Talking point: 5 teams ran simultaneously on the same data.
+-- No locking. No contention. No one waited for anyone else.
 
 
 -- =============================================================================
--- CLEANUP
+-- CLEANUP — Run in any tab after the demo
 -- =============================================================================
 
 DROP WAREHOUSE IF EXISTS CALOPTIMA_EXEC_WH;
@@ -178,6 +190,5 @@ DROP WAREHOUSE IF EXISTS CALOPTIMA_ENG_WH;
 DROP WAREHOUSE IF EXISTS CALOPTIMA_ANALYST_WH;
 DROP WAREHOUSE IF EXISTS CALOPTIMA_BA_WH;
 DROP WAREHOUSE IF EXISTS CALOPTIMA_ML_WH;
-ALTER SESSION UNSET USE_CACHED_RESULT;
 
 SELECT 'Workload isolation demo complete.' AS status;

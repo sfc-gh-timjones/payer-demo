@@ -39,7 +39,9 @@ CREATE OR REPLACE WAREHOUSE CALOPTIMA_CONCURRENCY_WH
     SCALING_POLICY    = STANDARD    -- adds clusters when queries start queueing
     AUTO_SUSPEND      = 30
     AUTO_RESUME       = TRUE
-    COMMENT           = 'Multi-cluster: auto-scales 1→4 during open enrollment surge';
+    COMMENT           = 'Multi-cluster: auto-scales 1→10 during open enrollment surge';
+
+USE WAREHOUSE WH_XS; 
 
 SHOW WAREHOUSES LIKE 'CALOPTIMA_CONCURRENCY_WH';
 -- Key columns: min_cluster_count=1, max_cluster_count=4, scaling_policy=STANDARD
@@ -101,14 +103,13 @@ def handler(session, user_count):
 $$;
 
 -- ── Fire concurrent load 
-USE WAREHOUSE WH_XS;   
-
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 SHOW PARAMETERS LIKE 'USE_CACHED_RESULT';
 
 CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(30);
 -- Submits concurrent query executions to CALOPTIMA_CONCURRENCY_WH.
 
+SHOW WAREHOUSES LIKE 'CALOPTIMA_CONCURRENCY_WH';
 -- =============================================================================
 -- PART 3: SHOW SCALE-OUT EVENTS
 -- Note: WAREHOUSE_EVENTS_HISTORY has ~2-min ingestion lag.

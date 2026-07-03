@@ -32,7 +32,7 @@ USE SCHEMA TPCH_SF100;
 -- =============================================================================
 
 CREATE OR REPLACE WAREHOUSE CALOPTIMA_CONCURRENCY_WH
-    WAREHOUSE_SIZE    = SMALL
+    WAREHOUSE_SIZE    = MEDIUM
     GENERATION = '2'
     MIN_CLUSTER_COUNT = 1           -- idles at 1 cluster at rest (cost-efficient)
     MAX_CLUSTER_COUNT = 10           -- scales out to 10 under heavy concurrent load

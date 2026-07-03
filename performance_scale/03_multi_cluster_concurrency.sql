@@ -101,7 +101,7 @@ def handler(session, user_count):
 $$;
 
 -- ── Fire concurrent load 
-USE WAREHOUSE WH_XS;   -- use a separate WH so this session stays responsive
+USE WAREHOUSE WH_XS;   
 
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 SHOW PARAMETERS LIKE 'USE_CACHED_RESULT';

@@ -19,7 +19,7 @@ USE WAREHOUSE WH_XS;
 -- Safe to run even if no tasks exist (IF EXISTS guards every DROP).
 -- =============================================================================
 
-CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(50);
+
 DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(INTEGER);
 DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(INTEGER);
 DROP WAREHOUSE IF EXISTS CALOPTIMA_CONCURRENCY_WH;
@@ -59,6 +59,8 @@ SELECT 'Setup complete — SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.LINEITEM is ready.'
 -- STEP 3: CREATE CLEANUP PROCEDURE
 -- =============================================================================
 
+USE WAREHOUSE WH_XS; 
+
 CREATE OR REPLACE PROCEDURE SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(user_count INTEGER)
 RETURNS VARCHAR
 LANGUAGE PYTHON
@@ -75,3 +77,5 @@ def handler(session, user_count):
 $$;
 
 SELECT 'Cleanup procedure ready.' AS status;
+
+CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(50);

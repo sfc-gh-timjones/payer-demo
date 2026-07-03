@@ -49,66 +49,19 @@ SHOW WAREHOUSES LIKE 'CALOPTIMA_CONCURRENCY_WH';
 
 
 -- =============================================================================
--- PART 2: CONCURRENT LOAD — PYTHON STORED PROCEDURE USING TASKS
+-- PART 2: FIRE CONCURRENT LOAD
 --
--- The procedure creates N Snowflake Tasks, resumes them, then fires all N
--- via EXECUTE TASK (which is non-blocking/async). This submits N independent
--- query executions concurrently to CALOPTIMA_CONCURRENCY_WH, building a
--- queue that triggers the STANDARD scaling policy scale-out.
+-- Tasks and procedures are pre-created in 03_setup.sql.
+-- spawn_concurrent_users now only calls EXECUTE TASK × N (~15 sec vs ~1 min).
+-- You can re-run this call after a batch finishes — tasks stay RESUMED and
+-- fire again cleanly on each EXECUTE TASK call.
 -- =============================================================================
 
-CREATE OR REPLACE PROCEDURE SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(user_count INTEGER)
-RETURNS VARCHAR
-LANGUAGE PYTHON
-RUNTIME_VERSION = '3.10'
-PACKAGES = ('snowflake-snowpark-python')
-HANDLER = 'handler'
-AS
-$$
-def handler(session, user_count):
-    benchmark_sql = """
-        SELECT
-            RANDOM()                                               AS run_id,
-            /* CALOPTIMA_CONCURRENCY_DEMO */ L_RETURNFLAG,
-            L_LINESTATUS,
-            SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT))               AS net_revenue,
-            SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT) * (1 + L_TAX)) AS total_charge,
-            AVG(L_DISCOUNT)                                        AS avg_discount,
-            COUNT(*)                                               AS claim_count
-        FROM SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.LINEITEM
-        WHERE L_SHIPDATE <= DATEADD(DAY, -90, TO_DATE('1998-12-01'))
-        GROUP BY L_RETURNFLAG, L_LINESTATUS
-        ORDER BY L_RETURNFLAG, L_LINESTATUS
-    """
-
-    # Step 1: Create one task per simulated concurrent user
-    for i in range(1, user_count + 1):
-        task_name = f"CONCURRENT_USER_{i:02d}"
-        session.sql(f"""
-            CREATE OR REPLACE TASK {task_name}
-                WAREHOUSE = CALOPTIMA_CONCURRENCY_WH
-                SCHEDULE  = 'USING CRON 0 0 31 12 * UTC'
-            AS
-            {benchmark_sql}
-        """).collect()
-        session.sql(f"ALTER TASK {task_name} RESUME").collect()
-
-    # Step 2: Fire all tasks concurrently
-    # EXECUTE TASK is async — each call returns immediately while the task runs.
-    # Calling it N times submits N concurrent executions to the warehouse.
-    for i in range(1, user_count + 1):
-        task_name = f"CONCURRENT_USER_{i:02d}"
-        session.sql(f"EXECUTE TASK {task_name}").collect()
-
-    return f"{user_count} concurrent users submitted to CALOPTIMA_CONCURRENCY_WH"
-$$;
-
--- ── Fire concurrent load 
+-- ── Fire concurrent load ──────────────────────────────────────────────────────
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 SHOW PARAMETERS LIKE 'USE_CACHED_RESULT';
 
 CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(100);
--- Submits concurrent query executions to CALOPTIMA_CONCURRENCY_WH.
 
 SHOW WAREHOUSES LIKE 'CALOPTIMA_CONCURRENCY_WH';
 -- =============================================================================

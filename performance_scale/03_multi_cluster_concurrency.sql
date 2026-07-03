@@ -22,7 +22,8 @@
 
 USE ROLE ACCOUNTADMIN;
 USE SECONDARY ROLES NONE;
-USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF100;
+USE DATABASE SNOWFLAKE_SAMPLE_DATA2;
+USE SCHEMA TPCH_SF100;
 
 
 -- =============================================================================
@@ -54,7 +55,7 @@ SHOW WAREHOUSES LIKE 'CALOPTIMA_CONCURRENCY_WH';
 -- queue that triggers the STANDARD scaling policy scale-out.
 -- =============================================================================
 
-CREATE OR REPLACE PROCEDURE spawn_concurrent_users(user_count INTEGER)
+CREATE OR REPLACE PROCEDURE SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(user_count INTEGER)
 RETURNS VARCHAR
 LANGUAGE PYTHON
 RUNTIME_VERSION = '3.10'
@@ -71,7 +72,7 @@ def handler(session, user_count):
             SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT) * (1 + L_TAX)) AS total_charge,
             AVG(L_DISCOUNT)                                        AS avg_discount,
             COUNT(*)                                               AS claim_count
-        FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF100.LINEITEM
+        FROM SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.LINEITEM
         WHERE L_SHIPDATE <= DATEADD(DAY, -90, TO_DATE('1998-12-01'))
         GROUP BY L_RETURNFLAG, L_LINESTATUS
         ORDER BY L_RETURNFLAG, L_LINESTATUS
@@ -105,7 +106,7 @@ USE WAREHOUSE WH_XS;   -- use a separate WH so this session stays responsive
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 SHOW PARAMETERS LIKE 'USE_CACHED_RESULT';
 
-CALL spawn_concurrent_users(50);
+CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(50);
 -- Submits 12 concurrent query executions to CALOPTIMA_CONCURRENCY_WH.
 -- A Small single-cluster warehouse can handle ~4-8 concurrent queries before
 -- queueing builds. STANDARD policy detects the queue and brings Cluster 2
@@ -188,7 +189,7 @@ ORDER BY SCHEDULED_TIME;
 -- CLEANUP
 -- =============================================================================
 
-CREATE OR REPLACE PROCEDURE cleanup_concurrent_users(user_count INTEGER)
+CREATE OR REPLACE PROCEDURE SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(user_count INTEGER)
 RETURNS VARCHAR
 LANGUAGE PYTHON
 RUNTIME_VERSION = '3.10'
@@ -203,9 +204,9 @@ def handler(session, user_count):
     return f"{user_count} tasks dropped"
 $$;
 
-CALL cleanup_concurrent_users(50);
-DROP PROCEDURE IF EXISTS spawn_concurrent_users(INTEGER);
-DROP PROCEDURE IF EXISTS cleanup_concurrent_users(INTEGER);
+CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(50);
+DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(INTEGER);
+DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(INTEGER);
 DROP WAREHOUSE IF EXISTS CALOPTIMA_CONCURRENCY_WH;
 
 SELECT 'Multi-cluster concurrency demo complete.' AS status;

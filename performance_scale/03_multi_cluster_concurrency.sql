@@ -140,6 +140,8 @@ ORDER BY TIMESTAMP;
 -- =============================================================================
 
 SELECT
+    USER_NAME,
+    WAREHOUSE_SIZE,
     CLUSTER_NUMBER,
     COUNT(*)                                     AS queries_handled,
     ROUND(AVG(TOTAL_ELAPSED_TIME) / 1000, 1)     AS avg_elapsed_sec,
@@ -149,12 +151,13 @@ FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
 WHERE WAREHOUSE_NAME = 'CALOPTIMA_CONCURRENCY_WH'
   AND START_TIME > DATEADD('hour', -1, CURRENT_TIMESTAMP())
   AND QUERY_TYPE = 'SELECT'
-GROUP BY CLUSTER_NUMBER
+GROUP BY USER_NAME, WAREHOUSE_SIZE, CLUSTER_NUMBER
 ORDER BY CLUSTER_NUMBER;
--- Expected: queries spread across clusters 1, 2, 3
--- Avg elapsed time is similar across clusters — load was balanced.
--- Without multi-cluster: all 12 queries serialize on cluster 1,
--- and later queries show much higher elapsed time from queueing.
+-- NOTE: Tasks execute as USER_NAME = 'SYSTEM', not your own user.
+-- In Snowsight Query History, switch the filter from "My Queries" to
+-- "All Users" to see these queries in the UI.
+-- Expected: queries distributed across multiple cluster numbers.
+-- Avg elapsed ~40-50 sec each — real compute, not cache hits.
 
 
 -- =============================================================================

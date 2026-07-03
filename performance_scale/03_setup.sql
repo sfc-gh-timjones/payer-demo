@@ -1,19 +1,35 @@
 -- =============================================================================
 -- FILE: 03_setup.sql
--- PURPOSE: Materialize TPCH_SF100 LINEITEM into a local database so that
---          stored procedures and tasks in 03_multi_cluster_concurrency.sql
---          can reference it (you cannot create procedures/tasks that run
---          against SNOWFLAKE_SAMPLE_DATA — it is a shared/imported database).
+-- PURPOSE: Run before EVERY demo run of 03_multi_cluster_concurrency.sql.
+--   1. Drops leftover tasks from any previous run (clean slate)
+--   2. Materializes TPCH_SF100 LINEITEM into a local database on first run
+--      (stored procedures and tasks cannot reference the shared SNOWFLAKE_SAMPLE_DATA)
 --
--- RUN ONCE before running 03_multi_cluster_concurrency.sql.
--- NOTE: The CTAS copies 600M rows. Expect 3-8 minutes on a Medium warehouse.
+-- NOTE: The CTAS (step 2) copies 600M rows and takes 3-8 min — only runs
+--       on first execution. CREATE TABLE IF NOT EXISTS skips it on repeat runs.
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
 USE SECONDARY ROLES NONE;
 USE WAREHOUSE WH_XS;
 
--- Create local database and schema matching the sample data layout
+
+-- =============================================================================
+-- STEP 1: CLEANUP — drop any tasks left over from a previous demo run
+-- Safe to run even if no tasks exist (IF EXISTS guards every DROP).
+-- =============================================================================
+
+CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(50);
+DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(INTEGER);
+DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(INTEGER);
+DROP WAREHOUSE IF EXISTS CALOPTIMA_CONCURRENCY_WH;
+
+SELECT 'Cleanup complete — ready for demo.' AS status;
+
+
+-- =============================================================================
+-- STEP 2: MATERIALIZE DATA (first run only — skipped if table already exists)
+-- =============================================================================
 CREATE DATABASE IF NOT EXISTS SNOWFLAKE_SAMPLE_DATA2;
 CREATE SCHEMA IF NOT EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100;
 

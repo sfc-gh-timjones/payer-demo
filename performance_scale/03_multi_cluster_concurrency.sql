@@ -84,7 +84,7 @@ def handler(session, user_count):
         session.sql(f"""
             CREATE OR REPLACE TASK {task_name}
                 WAREHOUSE = CALOPTIMA_CONCURRENCY_WH
-                SCHEDULE  = 'USING CRON * * 31 2 * UTC'
+                SCHEDULE  = 'USING CRON 0 0 31 12 * UTC'
             AS
             {benchmark_sql}
         """).collect()

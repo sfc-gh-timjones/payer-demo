@@ -68,6 +68,7 @@ $$
 def handler(session, user_count):
     benchmark_sql = """
         SELECT
+            RANDOM()                                               AS run_id,
             L_RETURNFLAG,
             L_LINESTATUS,
             SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT))               AS net_revenue,

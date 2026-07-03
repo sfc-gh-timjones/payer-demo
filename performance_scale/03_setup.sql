@@ -137,8 +137,9 @@ def handler(session, user_count):
         task_name = f"CONCURRENT_USER_{i:02d}"
         session.sql(f"""
             CREATE OR REPLACE TASK SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.{task_name}
-                WAREHOUSE = CALOPTIMA_CONCURRENCY_WH
-                SCHEDULE  = 'USING CRON 0 0 31 12 * UTC'
+                WAREHOUSE                  = CALOPTIMA_CONCURRENCY_WH
+                SCHEDULE                   = 'USING CRON 0 0 31 12 * UTC'
+                ALLOW_OVERLAPPING_EXECUTION = TRUE
             AS
             {benchmark_sql}
         """).collect()

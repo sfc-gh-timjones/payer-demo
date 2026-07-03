@@ -1,27 +1,27 @@
 -- =============================================================================
--- FILE: 02_workload_isolation.sql
+-- FILE: 02_workload_isolation.sql  (COORDINATOR — run this first)
 -- PURPOSE: CalOptima RFP 26-038 | Performance — Workload Isolation
---          5 independent virtual warehouses, one shared dataset.
---          A heavy overnight ETL job cannot slow down the CEO's morning report.
+--          Setup, proof, and cleanup for the 5-worksheet demo.
 --
--- DATA: SNOWFLAKE_SAMPLE_DATA.TPCH_SF100 (600M rows)
---
--- HOW TO RUN FOR MAXIMUM IMPACT:
---   Run PART 1 (setup) in any single worksheet first.
---   Then open 5 Snowsight worksheet tabs — one per workload section below.
---   Start the heavy ENG query (Tab 2) FIRST. While it's still running,
---   immediately fire the EXEC query (Tab 1). Tab 1 finishes in seconds.
---   The audience sees isolation proven visually: Tab 2 is still spinning.
+-- HOW TO RUN:
+--   1. Run PART 1 here to create all 5 warehouses
+--   2. Open the 5 tab worksheets and run them simultaneously:
+--        02_tab1_exec.sql    → Tab 1
+--        02_tab2_eng.sql     → Tab 2  (start this one first — it's the heavy job)
+--        02_tab3_analyst.sql → Tab 3
+--        02_tab4_ba.sql      → Tab 4
+--        02_tab5_ml.sql      → Tab 5
+--   3. Come back here and run PART 2 (proof) after queries complete
+--   4. Run PART 3 (cleanup) to drop warehouses after the demo
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
 USE SECONDARY ROLES NONE;
-USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF100;
 
 
 -- =============================================================================
--- PART 1: SETUP — RUN ONCE IN ANY WORKSHEET
--- Creates all 5 warehouses. Run this before opening the parallel tabs.
+-- PART 1: CREATE 5 WORKLOAD WAREHOUSES
+-- "Every team at CalOptima gets their own dedicated compute."
 -- =============================================================================
 
 CREATE OR REPLACE WAREHOUSE CALOPTIMA_EXEC_WH
@@ -44,123 +44,14 @@ CREATE OR REPLACE WAREHOUSE CALOPTIMA_ML_WH
     WAREHOUSE_SIZE = MEDIUM  AUTO_SUSPEND = 60  AUTO_RESUME = TRUE
     COMMENT = 'Data Science — ML feature engineering and model scoring';
 
--- Confirm all 5 warehouses are ready
 SHOW WAREHOUSES LIKE 'CALOPTIMA%';
 
 
 -- =============================================================================
--- PART 2: PARALLEL ISOLATION DEMO
--- Open a separate Snowsight worksheet tab for each section below.
--- Start Tab 2 (ENG heavy job) first, then immediately run Tab 1 (EXEC).
--- Key moment: Tab 1 finishes in seconds while Tab 2 is still running.
--- That is workload isolation.
--- =============================================================================
-
--- ┌─────────────────────────────────────────────────────────────────────────┐
--- │ TAB 1 — EXEC: Executive dashboard query (run WHILE Tab 2 is running)   │
--- │ Small warehouse. Should finish in ~3-5 seconds.                         │
--- └─────────────────────────────────────────────────────────────────────────┘
-USE WAREHOUSE CALOPTIMA_EXEC_WH;
-ALTER SESSION SET USE_CACHED_RESULT = FALSE;
-
-SELECT
-    L_RETURNFLAG                     AS claim_status,
-    COUNT(*)                         AS claim_count,
-    SUM(L_EXTENDEDPRICE)             AS total_billed,
-    ROUND(AVG(L_DISCOUNT) * 100, 2)  AS avg_discount_pct
-FROM LINEITEM
-GROUP BY L_RETURNFLAG
-ORDER BY total_billed DESC;
--- Finishes fast on its own Small warehouse — unaffected by whatever else is running.
-
-
--- ┌─────────────────────────────────────────────────────────────────────────┐
--- │ TAB 2 — ENG: Heavy ETL/reconciliation job (start this one FIRST)        │
--- │ Large warehouse. Intentionally slow — represents overnight batch work.  │
--- └─────────────────────────────────────────────────────────────────────────┘
-USE WAREHOUSE CALOPTIMA_ENG_WH;
-ALTER SESSION SET USE_CACHED_RESULT = FALSE;
-
-SELECT
-    L_SUPPKEY,
-    L_RETURNFLAG,
-    L_LINESTATUS,
-    SUM(L_QUANTITY)                                        AS total_qty,
-    SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT) * (1 + L_TAX)) AS total_charge,
-    COUNT(DISTINCT L_ORDERKEY)                             AS unique_claims,
-    MIN(L_SHIPDATE)                                        AS earliest_ship,
-    MAX(L_SHIPDATE)                                        AS latest_ship
-FROM LINEITEM
-GROUP BY L_SUPPKEY, L_RETURNFLAG, L_LINESTATUS
-ORDER BY total_charge DESC
-LIMIT 200;
-
-
--- ┌─────────────────────────────────────────────────────────────────────────┐
--- │ TAB 3 — ANALYST: Exploratory trend analysis                             │
--- └─────────────────────────────────────────────────────────────────────────┘
-USE WAREHOUSE CALOPTIMA_ANALYST_WH;
-ALTER SESSION SET USE_CACHED_RESULT = FALSE;
-
-SELECT
-    YEAR(L_SHIPDATE)     AS claim_year,
-    MONTH(L_SHIPDATE)    AS claim_month,
-    L_RETURNFLAG         AS claim_status,
-    COUNT(*)             AS claim_count,
-    SUM(L_EXTENDEDPRICE) AS total_revenue,
-    AVG(L_DISCOUNT)      AS avg_discount
-FROM LINEITEM
-GROUP BY 1, 2, 3
-ORDER BY claim_year, claim_month, claim_status;
-
-
--- ┌─────────────────────────────────────────────────────────────────────────┐
--- │ TAB 4 — BUSINESS ANALYST: Standard operational report                   │
--- └─────────────────────────────────────────────────────────────────────────┘
-USE WAREHOUSE CALOPTIMA_BA_WH;
-ALTER SESSION SET USE_CACHED_RESULT = FALSE;
-
-SELECT
-    L_LINESTATUS,
-    COUNT(*)                                    AS line_count,
-    SUM(L_EXTENDEDPRICE)                        AS gross_billed,
-    SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT))     AS net_billed,
-    SUM(L_EXTENDEDPRICE * L_DISCOUNT)           AS total_discount
-FROM LINEITEM
-WHERE L_SHIPDATE BETWEEN '1996-01-01' AND '1998-12-31'
-GROUP BY L_LINESTATUS
-ORDER BY gross_billed DESC;
-
-
--- ┌─────────────────────────────────────────────────────────────────────────┐
--- │ TAB 5 — ML / DATA SCIENCE: Feature engineering with joins               │
--- └─────────────────────────────────────────────────────────────────────────┘
-USE WAREHOUSE CALOPTIMA_ML_WH;
-ALTER SESSION SET USE_CACHED_RESULT = FALSE;
-
-SELECT
-    O.O_CUSTKEY,
-    COUNT(L.L_LINENUMBER)                              AS claim_line_count,
-    SUM(L.L_EXTENDEDPRICE)                             AS total_billed,
-    AVG(L.L_DISCOUNT)                                  AS avg_discount,
-    PERCENTILE_CONT(0.5) WITHIN GROUP
-        (ORDER BY L.L_EXTENDEDPRICE)                   AS median_claim_amt
-FROM ORDERS   O
-JOIN LINEITEM  L ON O.O_ORDERKEY = L.L_ORDERKEY
-GROUP BY O.O_CUSTKEY
-ORDER BY total_billed DESC
-LIMIT 500;
-
-
--- =============================================================================
--- PART 3: ISOLATION PROOF — PER-WAREHOUSE CREDIT USAGE
--- Run in any tab after all queries complete.
+-- PART 2: ISOLATION PROOF (run after all 5 tabs have finished)
 -- Note: WAREHOUSE_METERING_HISTORY has ~2-min ingestion lag.
--- "The heavy ENG job consumed its own budget. EXEC_WH was completely unaffected."
+-- "The heavy ENG job consumed its own budget. EXEC_WH was unaffected."
 -- =============================================================================
-
-USE WAREHOUSE WH_XS;
-ALTER SESSION UNSET USE_CACHED_RESULT;
 
 SELECT
     WAREHOUSE_NAME,
@@ -176,13 +67,13 @@ ORDER BY compute_credits DESC;
 -- Expected:
 --   CALOPTIMA_ENG_WH     → highest credits (Large WH, heaviest query)
 --   CALOPTIMA_ANALYST_WH / ML_WH → medium
---   CALOPTIMA_EXEC_WH / BA_WH    → lowest (Small WH, lightweight queries)
+--   CALOPTIMA_EXEC_WH / BA_WH    → lowest (Small WH, light queries)
 -- Talking point: 5 teams ran simultaneously on the same data.
 -- No locking. No contention. No one waited for anyone else.
 
 
 -- =============================================================================
--- CLEANUP — Run in any tab after the demo
+-- PART 3: CLEANUP
 -- =============================================================================
 
 DROP WAREHOUSE IF EXISTS CALOPTIMA_EXEC_WH;

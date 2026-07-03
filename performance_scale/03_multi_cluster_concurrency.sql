@@ -102,7 +102,10 @@ $$;
 -- ── Fire concurrent load ──────────────────────────────────────────────────────
 USE WAREHOUSE WH_XS;   -- use a separate WH so this session stays responsive
 
-CALL spawn_concurrent_users(20);
+ALTER SESSION SET USE_CACHED_RESULT = FALSE;
+SHOW PARAMETERS LIKE 'USE_CACHED_RESULT';
+
+CALL spawn_concurrent_users(50);
 -- Submits 12 concurrent query executions to CALOPTIMA_CONCURRENCY_WH.
 -- A Small single-cluster warehouse can handle ~4-8 concurrent queries before
 -- queueing builds. STANDARD policy detects the queue and brings Cluster 2
@@ -200,7 +203,7 @@ def handler(session, user_count):
     return f"{user_count} tasks dropped"
 $$;
 
-CALL cleanup_concurrent_users(20);
+CALL cleanup_concurrent_users(50);
 DROP PROCEDURE IF EXISTS spawn_concurrent_users(INTEGER);
 DROP PROCEDURE IF EXISTS cleanup_concurrent_users(INTEGER);
 DROP WAREHOUSE IF EXISTS CALOPTIMA_CONCURRENCY_WH;

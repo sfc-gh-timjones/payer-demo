@@ -25,6 +25,6 @@ SELECT
 FROM LINEITEM
 GROUP BY L_SUPPKEY, L_RETURNFLAG, L_LINESTATUS
 ORDER BY total_charge DESC
-LIMIT 200;
+;
 -- Heavy full-table aggregation. Takes longer than the other tabs.
 -- This is the point: even with this running, EXEC_WH is completely unaffected.

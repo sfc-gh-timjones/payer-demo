@@ -35,7 +35,7 @@ CREATE OR REPLACE WAREHOUSE CALOPTIMA_CONCURRENCY_WH
     WAREHOUSE_SIZE    = SMALL
     GENERATION = '2'
     MIN_CLUSTER_COUNT = 1           -- idles at 1 cluster at rest (cost-efficient)
-    MAX_CLUSTER_COUNT = 4           -- scales out to 4 under heavy concurrent load
+    MAX_CLUSTER_COUNT = 10           -- scales out to 10 under heavy concurrent load
     SCALING_POLICY    = STANDARD    -- adds clusters when queries start queueing
     AUTO_SUSPEND      = 30
     AUTO_RESUME       = TRUE
@@ -106,16 +106,8 @@ USE WAREHOUSE WH_XS;   -- use a separate WH so this session stays responsive
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;
 SHOW PARAMETERS LIKE 'USE_CACHED_RESULT';
 
-CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(50);
--- Submits 12 concurrent query executions to CALOPTIMA_CONCURRENCY_WH.
--- A Small single-cluster warehouse can handle ~4-8 concurrent queries before
--- queueing builds. STANDARD policy detects the queue and brings Cluster 2
--- online, then Cluster 3 as load grows.
-
--- Watch Snowsight: the warehouse card shows cluster count increasing in real time.
-
--- ── Wait 1-2 min for tasks to complete, then run the analysis below ───────────
-
+CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(30);
+-- Submits concurrent query executions to CALOPTIMA_CONCURRENCY_WH.
 
 -- =============================================================================
 -- PART 3: SHOW SCALE-OUT EVENTS

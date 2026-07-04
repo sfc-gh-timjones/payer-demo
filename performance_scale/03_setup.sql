@@ -96,19 +96,9 @@ SELECT 'Procedures ready.' AS status;
 -- =============================================================================
 -- STEP 4: PRE-CREATE ALL 100 TASKS (runs once here so demo kickoff is fast)
 -- Tasks stay RESUMED and ready — EXECUTE TASK re-fires them on every demo run.
--- Re-running spawn_concurrent_users after a batch finishes works cleanly:
--- tasks remain RESUMED and each EXECUTE TASK fires a fresh independent execution.
+-- The warehouse is created in 03_multi_cluster_concurrency.sql Part 1.
+-- Tasks reference it by name; the warehouse only needs to exist when they execute.
 -- =============================================================================
-
-CREATE OR REPLACE WAREHOUSE CALOPTIMA_CONCURRENCY_WH
-    WAREHOUSE_SIZE    = SMALL
-    GENERATION        = '2'
-    MIN_CLUSTER_COUNT = 1
-    MAX_CLUSTER_COUNT = 10
-    SCALING_POLICY    = STANDARD
-    AUTO_SUSPEND      = 30
-    AUTO_RESUME       = TRUE
-    COMMENT           = 'Multi-cluster: auto-scales 1→10 during open enrollment surge';
 
 CREATE OR REPLACE PROCEDURE SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.precreate_tasks(user_count INTEGER)
 RETURNS VARCHAR

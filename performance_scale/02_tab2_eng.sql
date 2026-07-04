@@ -5,7 +5,7 @@
 -- The audience sees Tab 1 complete while this is still running = isolation proven.
 -- =============================================================================
 
-USE ROLE ACCOUNTADMIN;
+USE ROLE CALOPTIMA_ENG_ROLE;
 USE SECONDARY ROLES NONE;
 USE WAREHOUSE CALOPTIMA_ENG_WH;
 USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF100;

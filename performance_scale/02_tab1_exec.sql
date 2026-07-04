@@ -5,7 +5,7 @@
 -- Key moment: this tab completes BEFORE Tab 2 — that is workload isolation.
 -- =============================================================================
 
-USE ROLE ACCOUNTADMIN;
+USE ROLE CALOPTIMA_EXEC_ROLE;
 USE SECONDARY ROLES NONE;
 USE WAREHOUSE CALOPTIMA_EXEC_WH;
 USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF100;

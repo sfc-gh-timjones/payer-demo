@@ -3,7 +3,7 @@
 -- Finance team standard reports on a Small warehouse.
 -- =============================================================================
 
-USE ROLE ACCOUNTADMIN;
+USE ROLE CALOPTIMA_FINANCE_ROLE;
 USE SECONDARY ROLES NONE;
 USE WAREHOUSE CALOPTIMA_FINANCE_WH;
 USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF100;

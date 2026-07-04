@@ -4,8 +4,10 @@
   File: 02_dq_demo.sql
   Purpose: Live demo walkthrough — run blocks sequentially during presentation.
            Shows: DMF configuration, clean baseline, violation injection,
-           expectation status, quarantine, alert check, and historical trends.
+           expectation status, alert check, historical trends, and Streamlit app.
   Pre-req:  01_dq_setup.sql must have been run first.
+  Tip:      Call INJECT_DIRTY_DATA() + CLEAN_DIRTY_DATA() 2-3 times before
+            the presentation to seed historical trend data in the charts.
 ================================================================================
 */
 
@@ -113,61 +115,7 @@ WHERE TABLE_NAME         = 'MEMBER'
 ORDER BY LATEST_MEASUREMENT_TIME DESC;
 
 /* ============================================================================
-   STEP 5: Quarantine pattern — live circuit breaker
-   "Invalid records are automatically intercepted and routed to quarantine
-    instead of polluting the Silver MEMBER table."
-   ============================================================================ */
-
--- Insert a test record through the staging path (simulates upstream pipeline)
-INSERT INTO zzFACETS_DEV_CLONE.SILVER.MEMBER_STAGING (
-  MEME_ID, SBSB_ID, MEME_LAST_NAME, MEME_FIRST_NAME, MEME_DOB,
-  MEME_SEX, MEME_MCTR_TYPE, MEME_STS, MEMBER_STATUS,
-  ACTIVE_PCP_NPI, MECD_BIC, SILVER_LOADED_AT, BRONZE_UPDATED_AT, DUPLICATE_COUNT
-) VALUES
--- Good record
-(8000001, 8000001, 'GOODRECORD', 'VALID', '1985-04-12',
- 'F', 'DSNP', 'A', 'Active',
- '1234567890', NULL, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()::TIMESTAMP_NTZ, 0),
--- Bad record: invalid sex code
-(8000002, 8000002, 'BADRECORD', 'INVALID_SEX', '1990-07-30',
- 'X', 'COMM', 'A', 'Active',  -- 'X' is not a valid sex code
- '0987654321', NULL, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()::TIMESTAMP_NTZ, 0),
--- Bad record: Medicaid member without BIC
-(8000003, 8000003, 'BADRECORD', 'MISSING_BIC', '1978-11-20',
- 'M', 'MEDCAID', 'A', 'Active',
- '1122334455', NULL, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()::TIMESTAMP_NTZ, 0);
-
--- Wait 1 minute for the MEMBER_QUALITY_GATE task to run, then check:
-
--- Records that PASSED quality gate (promoted to MEMBER)
-SELECT 'MEMBER (passed)' AS destination, MEME_ID, MEME_LAST_NAME, MEME_MCTR_TYPE, MEME_SEX
-FROM zzFACETS_DEV_CLONE.SILVER.MEMBER
-WHERE MEME_ID IN (8000001, 8000002, 8000003);
-
--- Records that FAILED quality gate (quarantined)
-SELECT
-  MEME_ID,
-  MEME_LAST_NAME || ', ' || MEME_FIRST_NAME AS MEMBER_NAME,
-  MEME_MCTR_TYPE,
-  MEME_SEX,
-  MECD_BIC,
-  QUARANTINE_REASON,
-  QUARANTINED_AT
-FROM zzFACETS_DEV_CLONE.SILVER.MEMBER_QUARANTINE
-WHERE MEME_ID IN (8000001, 8000002, 8000003)
-ORDER BY QUARANTINED_AT DESC;
-
--- Quarantine summary by rejection reason
-SELECT
-  QUARANTINE_REASON,
-  COUNT(*)    AS rejected_count,
-  MAX(QUARANTINED_AT) AS last_seen
-FROM zzFACETS_DEV_CLONE.SILVER.MEMBER_QUARANTINE
-GROUP BY QUARANTINE_REASON
-ORDER BY rejected_count DESC;
-
-/* ============================================================================
-   STEP 6: Alert check
+   STEP 5: Alert check
    "If we were in production, an email alert would have already fired.
     Let's check the alert status."
    ============================================================================ */
@@ -191,7 +139,7 @@ WHERE NAME = 'MEMBER_DQ_ALERT'
 ORDER BY SCHEDULED_TIME DESC;
 
 /* ============================================================================
-   STEP 7: Historical trends
+   STEP 6: Historical trends
    "Every evaluation run is stored — here's the trend over time for each rule."
    Use SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS() for raw metric history.
    ============================================================================ */
@@ -242,6 +190,19 @@ WHERE METRIC_NAME = 'ROW_COUNT'
 ORDER BY MEASUREMENT_TIME;
 
 /* ============================================================================
+   STEP 7: Streamlit dashboard
+   Open the Streamlit app deployed from data_quality/streamlit_app.py.
+   It shows the same data visualized as live charts:
+     - DQ health score KPI
+     - Active violations table with severity badges
+     - Rule status grid (pass/fail for all 9 rules)
+     - Historical violation trend lines
+     - Member count (volume) trend
+   Tip: call INJECT_DIRTY_DATA() and refresh the app to watch the score drop
+        and violations appear in real time.
+   ============================================================================ */
+
+/* ============================================================================
    STEP 8: Clean up violations
    "Let's restore the clean state and confirm all expectations pass again."
    ============================================================================ */
@@ -252,11 +213,11 @@ CALL zzFACETS_DEV_CLONE.SILVER.CLEAN_DIRTY_DATA();
 -- confirm all expectations return to EXPECTATION_VIOLATED = FALSE.
 
 /* ============================================================================
-   APPENDIX: Useful queries for Snowsight dashboard tiles
-   These queries power the data quality monitoring dashboard.
+   APPENDIX: SQL reference for Streamlit app
+   These are the queries used by data_quality/streamlit_app.py.
    ============================================================================ */
 
--- Dashboard tile 1: DQ health score (% rules passing)
+-- DQ health score (% rules passing)
 SELECT
   ROUND(
     100.0 * SUM(CASE WHEN EXPECTATION_VIOLATED = FALSE THEN 1 ELSE 0 END)
@@ -270,7 +231,7 @@ WHERE TABLE_NAME      = 'MEMBER'
   AND TABLE_SCHEMA    = 'SILVER'
   AND TABLE_DATABASE  = 'ZZFACETS_DEV_CLONE';
 
--- Dashboard tile 2: Active violations with severity mapping
+-- Active violations with severity mapping
 SELECT
   METRIC_NAME                AS rule,
   ARGUMENT_NAME              AS column_name,
@@ -287,10 +248,10 @@ WHERE TABLE_NAME        = 'MEMBER'
   AND TABLE_DATABASE    = 'ZZFACETS_DEV_CLONE'
   AND EXPECTATION_VIOLATED = TRUE
 ORDER BY
-  FIELD(severity, 'HIGH', 'MEDIUM', 'LOW'),
+  CASE severity WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 ELSE 3 END,
   LATEST_VALUE DESC;
 
--- Dashboard tile 3: Member count over time (volume trend)
+-- Member count over time (volume trend)
 SELECT
   DATE_TRUNC('HOUR', MEASUREMENT_TIME) AS measurement_hour,
   AVG(VALUE)                           AS avg_member_count
@@ -301,13 +262,3 @@ FROM TABLE(SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS(
 WHERE METRIC_NAME = 'ROW_COUNT'
 GROUP BY 1
 ORDER BY 1;
-
--- Dashboard tile 4: Quarantine breakdown
-SELECT
-  QUARANTINE_REASON,
-  COUNT(*) AS total_quarantined,
-  MIN(QUARANTINED_AT) AS first_seen,
-  MAX(QUARANTINED_AT) AS last_seen
-FROM zzFACETS_DEV_CLONE.SILVER.MEMBER_QUARANTINE
-GROUP BY QUARANTINE_REASON
-ORDER BY total_quarantined DESC;

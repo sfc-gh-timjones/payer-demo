@@ -140,9 +140,9 @@ ORDER BY SCHEDULED_TIME;
 -- CLEANUP
 -- =============================================================================
 
-CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(100);
-DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(INTEGER);
-DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(INTEGER);
-DROP WAREHOUSE IF EXISTS CALOPTIMA_CONCURRENCY_WH;
+--CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(100);
+--DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(INTEGER);
+--DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(INTEGER);
+--DROP WAREHOUSE IF EXISTS CALOPTIMA_CONCURRENCY_WH;
 
-SELECT 'Multi-cluster concurrency demo complete.' AS status;
+--SELECT 'Multi-cluster concurrency demo complete.' AS status;

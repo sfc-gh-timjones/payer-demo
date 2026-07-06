@@ -17,10 +17,14 @@ GO
 -- Step 1: Enable Change Tracking on the DATABASE
 -- ALREADY ENABLED — commented out. Run manually only if needed on a fresh DB.
 -- ---------------------------------------------------------------------------
--- ALTER DATABASE openflow
---     SET CHANGE_TRACKING = ON
---     (CHANGE_RETENTION = 5 DAYS, AUTO_CLEANUP = ON);
--- GO
+-- MUST BE RUN IN THE MASTER DATABASE
+
+--CREATE LOGIN openflow_user WITH PASSWORD = 'strongpasswordhere';
+
+
+-- MUST BE RUN IN YOUR SPECIFIC USER DATABASE
+
+--CREATE USER openflow_user FOR LOGIN openflow_user;
 
 -- ---------------------------------------------------------------------------
 -- Step 2: Enable Change Tracking on every table to be replicated
@@ -62,16 +66,8 @@ ALTER TABLE raw.CMC_MEES_EXCHANGE        ENABLE CHANGE_TRACKING;
 ALTER TABLE raw.CMC_MECD_MEDICAID        ENABLE CHANGE_TRACKING;
 ALTER TABLE raw.CMC_MESU_SUBSIDY         ENABLE CHANGE_TRACKING;
 GO
-
 -- ---------------------------------------------------------------------------
--- Step 3: Create the database user mapped to the existing login
--- ALREADY CREATED — openflow_user login and db user exist. Commented out.
--- ---------------------------------------------------------------------------
--- CREATE USER openflow_user FOR LOGIN openflow_user;
--- GO
-
--- ---------------------------------------------------------------------------
--- Step 4: Set default schema to raw
+-- Step 3: Set default schema to raw
 -- Allows unqualified table names (e.g. CMC_PRPR_PROV) in the Snowflake
 -- Python stored procs to resolve correctly without adding raw. prefix.
 -- ---------------------------------------------------------------------------
@@ -79,7 +75,7 @@ ALTER USER openflow_user WITH DEFAULT_SCHEMA = raw;
 GO
 
 -- ---------------------------------------------------------------------------
--- Step 5: Grant SELECT + VIEW CHANGE TRACKING on each table (Openflow CDC)
+-- Step 4: Grant SELECT + VIEW CHANGE TRACKING on each table (Openflow CDC)
 -- Both grants are required per the Openflow SQL Server connector docs.
 -- ---------------------------------------------------------------------------
 GRANT SELECT ON raw.CMC_NWNW_NETWORK          TO openflow_user;

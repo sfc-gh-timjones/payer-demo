@@ -23,11 +23,11 @@ USE SCHEMA SILVER;
    ============================================================================ */
 
 -- All DMF associations on the MEMBER table
-SHOW DATA METRIC FUNCTIONS IN TABLE zzFACETS_DEV_CLONE.SILVER.MEMBER;
+SHOW DATA METRIC FUNCTIONS IN TABLE SILVER.MEMBER;
 
 -- Describe what each custom DMF does
-DESCRIBE DATA METRIC FUNCTION zzFACETS_DEV_CLONE.DQ_POLICIES.INVALID_NPI_COUNT;
-DESCRIBE DATA METRIC FUNCTION zzFACETS_DEV_CLONE.DQ_POLICIES.MEDICAID_MISSING_BIC_COUNT;
+DESCRIBE DATA METRIC FUNCTION DQ_POLICIES.INVALID_NPI_COUNT;
+DESCRIBE DATA METRIC FUNCTION DQ_POLICIES.MEDICAID_MISSING_BIC_COUNT;
 
 /* ============================================================================
    STEP 2: Clean baseline — all expectations passing
@@ -65,7 +65,7 @@ WHERE TABLE_NAME = 'MEMBER'
    after calling this before checking violations.
    ============================================================================ */
 
-CALL zzFACETS_DEV_CLONE.SILVER.INJECT_DIRTY_DATA();
+CALL INJECT_DIRTY_DATA();
 
 -- Show the dirty rows just inserted
 SELECT

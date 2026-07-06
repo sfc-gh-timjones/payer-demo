@@ -15,13 +15,14 @@ RETURNS STRING
 LANGUAGE PYTHON
 RUNTIME_VERSION = '3.10'
 ARTIFACT_REPOSITORY = snowflake.snowpark.pypi_shared_repository
-PACKAGES = ('snowflake-snowpark-python', 'pytds')
+PACKAGES = ('snowflake-snowpark-python', 'python-tds', 'certifi')
 EXTERNAL_ACCESS_INTEGRATIONS = (AZURE_SQL_FACETS_EAI)
 SECRETS = ('facets_sql_creds' = FACETS_BRONZE.UTILS.FACETS_SQL_CREDS)
 HANDLER = 'connection_test'
 AS
 $$
 import pytds
+import certifi
 import _snowflake
 
 
@@ -44,6 +45,8 @@ def connection_test(session, sql_server_host: str, sql_server_db: str) -> str:
             database=sql_server_db,
             user=creds.username,
             password=creds.password,
+            cafile=certifi.where(),
+            validate_host=False,
             timeout=30,
             autocommit=True
         )

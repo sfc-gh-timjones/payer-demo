@@ -188,3 +188,115 @@ ALTER TABLE SILVER.MEMBER
 SELECT
   'FACETS_DEV.SILVER.MEMBER data quality monitoring configured.' AS status,
   '9 DMFs attached with TRIGGER_ON_CHANGES schedule.'           AS details;
+
+/* ============================================================================
+   ── PART 2: FACETS_BRONZE.RAW.CMC_MEME_MEMBER (Openflow CDC source) ─────────
+   Applies 6 DMFs to the raw Bronze table coming directly from Openflow.
+   No NPI or BIC columns exist at this layer — those custom DMFs are omitted.
+   All timestamps in this table are TIMESTAMP_NTZ so FRESHNESS() uses the
+   no-argument version (entity metadata) rather than a column value.
+   ============================================================================ */
+
+USE DATABASE FACETS_BRONZE;
+
+/* ============================================================================
+   SECTION F: Monitoring schedule for Bronze table
+   ============================================================================ */
+
+ALTER TABLE FACETS_BRONZE.RAW.CMC_MEME_MEMBER
+  SET DATA_METRIC_SCHEDULE = 'TRIGGER_ON_CHANGES';
+
+/* ============================================================================
+   SECTION G: Attach DMFs to RAW.CMC_MEME_MEMBER
+   ============================================================================ */
+
+USE SCHEMA FACETS_BRONZE.RAW;
+
+-- 1. Volume: total row count
+ALTER TABLE CMC_MEME_MEMBER
+  ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.ROW_COUNT ON ();
+
+-- 2. Freshness: entity-level — no TIMESTAMP_LTZ/TZ column exists in Bronze.
+--    FRESHNESS() (no args) measures time since the table was last modified,
+--    which reflects the last Openflow write.
+ALTER TABLE CMC_MEME_MEMBER
+  ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.FRESHNESS ON ();
+
+-- 3. Completeness: null DOB
+ALTER TABLE CMC_MEME_MEMBER
+  ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_COUNT
+  ON (MEME_DOB);
+
+-- 4. Uniqueness: duplicate member IDs
+ALTER TABLE CMC_MEME_MEMBER
+  ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.DUPLICATE_COUNT
+  ON (MEME_ID);
+
+-- 5. Validity: plan type
+ALTER TABLE CMC_MEME_MEMBER
+  ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.ACCEPTED_VALUES
+  ON (MEME_MCTR_TYPE, MEME_MCTR_TYPE -> MEME_MCTR_TYPE IN ('COMM', 'DSNP', 'MEDCAID'));
+
+-- 6. Validity: sex code
+ALTER TABLE CMC_MEME_MEMBER
+  ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.ACCEPTED_VALUES
+  ON (MEME_SEX, MEME_SEX -> MEME_SEX IN ('M', 'F', 'U'));
+
+/* ============================================================================
+   SECTION H: Expectations for CMC_MEME_MEMBER
+   ============================================================================ */
+
+ALTER TABLE CMC_MEME_MEMBER
+  MODIFY DATA METRIC FUNCTION SNOWFLAKE.CORE.ROW_COUNT ON ()
+  ADD EXPECTATION member_table_has_rows (VALUE > 0);
+
+-- Freshness: table must have been written to within the last 15 minutes
+ALTER TABLE CMC_MEME_MEMBER
+  MODIFY DATA METRIC FUNCTION SNOWFLAKE.CORE.FRESHNESS ON ()
+  ADD EXPECTATION data_fresh_within_15m (VALUE < 900);
+
+ALTER TABLE CMC_MEME_MEMBER
+  MODIFY DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_COUNT ON (MEME_DOB)
+  ADD EXPECTATION no_null_dob (VALUE = 0);
+
+ALTER TABLE CMC_MEME_MEMBER
+  MODIFY DATA METRIC FUNCTION SNOWFLAKE.CORE.DUPLICATE_COUNT ON (MEME_ID)
+  ADD EXPECTATION no_duplicate_member_ids (VALUE = 0);
+
+ALTER TABLE CMC_MEME_MEMBER
+  MODIFY DATA METRIC FUNCTION SNOWFLAKE.CORE.ACCEPTED_VALUES
+  ON (MEME_MCTR_TYPE, MEME_MCTR_TYPE -> MEME_MCTR_TYPE IN ('COMM', 'DSNP', 'MEDCAID'))
+  ADD EXPECTATION all_valid_plan_types (VALUE = 0);
+
+ALTER TABLE CMC_MEME_MEMBER
+  MODIFY DATA METRIC FUNCTION SNOWFLAKE.CORE.ACCEPTED_VALUES
+  ON (MEME_SEX, MEME_SEX -> MEME_SEX IN ('M', 'F', 'U'))
+  ADD EXPECTATION all_valid_sex_codes (VALUE = 0);
+
+/* ============================================================================
+   DONE — verify with:
+
+   SELECT
+     METRIC_NAME,
+     ARGUMENT_NAMES AS column_name,
+     EXPECTATION_EXPRESSION,
+     VALUE,
+     EXPECTATION_VIOLATED,
+     MEASUREMENT_TIME
+   FROM SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_EXPECTATION_STATUS
+   WHERE TABLE_NAME     = 'CMC_MEME_MEMBER'
+     AND TABLE_SCHEMA   = 'RAW'
+     AND TABLE_DATABASE = 'FACETS_BRONZE'
+     AND EXPECTATION_NAME IN (
+       SELECT EXPECTATION_NAME
+       FROM TABLE(FACETS_BRONZE.INFORMATION_SCHEMA.DATA_METRIC_FUNCTION_EXPECTATIONS(
+         REF_ENTITY_NAME => 'FACETS_BRONZE.RAW.CMC_MEME_MEMBER', REF_ENTITY_DOMAIN => 'TABLE'))
+     )
+   QUALIFY ROW_NUMBER() OVER (PARTITION BY METRIC_NAME, ARGUMENT_NAMES, EXPECTATION_NAME
+                               ORDER BY MEASUREMENT_TIME DESC) = 1
+   ORDER BY METRIC_NAME;
+   ============================================================================ */
+
+SELECT
+  'FACETS_BRONZE.RAW.CMC_MEME_MEMBER data quality monitoring configured.' AS status,
+  '6 DMFs attached with TRIGGER_ON_CHANGES schedule.'                      AS details;

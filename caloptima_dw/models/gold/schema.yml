@@ -1,0 +1,36 @@
+version: 2
+
+models:
+  - name: gold_member_enrollment
+    description: >
+      Phase 1 scaffold (architecture placeholder). Phase 2 will join
+      SILVER.MEMBER with active SILVER.ELIGIBILITY spans to produce one
+      analytics-ready row per enrolled member with plan type, PCP, and
+      Medi-Cal eligibility attributes. Powers member roster reporting and
+      care management workflows.
+    columns:
+      - name: model_description
+        description: Phase 1 placeholder — describes Phase 2 implementation intent.
+        tests: [not_null]
+
+  - name: gold_provider_directory
+    description: >
+      Phase 1 scaffold (architecture placeholder). Phase 2 will filter
+      SILVER.PROVIDER to IS_CURRENT = TRUE and join network participation and
+      address data to produce a clean in-network provider directory. Powers
+      member-facing provider search and network adequacy analysis.
+    columns:
+      - name: model_description
+        description: Phase 1 placeholder — describes Phase 2 implementation intent.
+        tests: [not_null]
+
+  - name: gold_eligibility_snapshot
+    description: >
+      Phase 1 scaffold (architecture placeholder). Phase 2 will filter
+      SILVER.ELIGIBILITY to currently active spans and join member demographics
+      to produce the authoritative "who is covered today" table. Powers claims
+      adjudication, encounter reporting, and regulatory eligibility attestation.
+    columns:
+      - name: model_description
+        description: Phase 1 placeholder — describes Phase 2 implementation intent.
+        tests: [not_null]

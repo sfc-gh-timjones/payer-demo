@@ -3,8 +3,8 @@ version: 2
 models:
   - name: dup_metrics
     description: >
-      Demo payoff table: Bronze row counts vs Silver deduplicated row counts for
-      providers and members. Shows duplicate_pct that Silver removes.
+      Pipeline observability: Bronze row counts vs Silver deduplicated row counts
+      for providers and members. Shows duplicate_pct that Silver transformation removes.
     columns:
       - name: domain
         tests:
@@ -18,8 +18,9 @@ models:
 
   - name: dq_row_counts
     description: >
-      Bronze vs Silver row count reconciliation for the three primary entities.
-      Silver row counts should be <= Bronze active row counts due to dedup.
+      Pipeline observability: Bronze vs Silver row count reconciliation for the
+      three primary entities. Silver row counts should be <= Bronze active row
+      counts due to deduplication.
     columns:
       - name: layer
         tests: [not_null]

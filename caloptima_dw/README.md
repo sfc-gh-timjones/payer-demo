@@ -7,11 +7,18 @@ dbt Core project for the CalOptima Health Facets CDC pipeline (RFP 26-038 demo).
 ```
 FACETS_BRONZE.RAW (Openflow CDC UPSERT)
   └── caloptima_dw (this project)
-        ├── staging/           → FACETS_DEV.STAGING   (views, 12 models)
-        ├── intermediate/                              (ephemeral, compiled inline)
-        ├── silver/            → FACETS_DEV.SILVER     (incremental merge, 4 models)
-        └── marts/             → FACETS_DEV.SILVER     (tables, 2 models)
+        ├── staging/        → FACETS_DEV.STAGING   (views, 12 models)
+        ├── intermediate/                           (ephemeral, compiled inline)
+        ├── silver/         → FACETS_DEV.SILVER     (incremental merge, 4 models)
+        ├── gold/           → FACETS_DEV.GOLD       (views, 3 models — Phase 1 scaffolds)
+        └── ops/            → FACETS_DEV.DQ         (tables, 2 models — pipeline observability)
 ```
+
+**Layer responsibilities:**
+- **STAGING** — light source renaming/decoding, one view per Bronze table, active-records filter
+- **SILVER** — conformed entities with business logic (SCD2, dedup, span normalization, quarantine)
+- **GOLD** — analytics-ready consumer layer (Phase 1 scaffold; full logic in Phase 2)
+- **DQ** — pipeline observability (Bronze vs Silver row counts, duplicate rate metrics)
 
 ## Setup
 
@@ -28,10 +35,13 @@ dbt test --select test_type:unit
 # First-time full build (required after schema changes or SCD2 column additions)
 dbt run --full-refresh
 
-# Full Silver refresh (incremental — picks up Bronze changes since last run)
+# Silver refresh (incremental — picks up Bronze changes since last run)
 dbt run --select provider member eligibility rejected_providers
 
-# DQ marts
+# Gold scaffolds (views — rebuild on query, but explicit run registers them)
+dbt run --select tag:gold
+
+# DQ ops (pipeline observability)
 dbt run --select dup_metrics dq_row_counts
 
 # All models
@@ -40,11 +50,11 @@ dbt run
 
 ## Environment targets
 
-| Target | Database   | Schema |
-|--------|------------|--------|
-| dev    | FACETS_DEV | SILVER |
-| qa     | FACETS_QA  | SILVER |
-| prod   | FACETS_PROD| SILVER |
+| Target | Database    | Schema  |
+|--------|-------------|---------|
+| dev    | FACETS_DEV  | SILVER  |
+| qa     | FACETS_QA   | SILVER  |
+| prod   | FACETS_PROD | SILVER  |
 
 ```bash
 # Switch target via --target flag
@@ -61,6 +71,7 @@ dbt run --target prod
 - **Member dedup**: Demographic key (SBSB_ID + DOB + SEX + NAME) MD5 hash — resolves near-duplicates across subscriber groups
 - **Eligibility spans**: `LAG()`-based span normalization collapses overlapping `MEPE_PRCS_ELIG` rows into non-overlapping spans
 - **Incremental filter**: `_SNOWFLAKE_UPDATED_AT > MAX(BRONZE_UPDATED_AT)` — picks up all Openflow upserts since last run
+- **Gold (Phase 1)**: Views with description strings only. Phase 2 will add full analytic logic referencing Silver models.
 
 ## Demo: Scenario 4 — Provider Status Change (SCD2)
 
@@ -92,4 +103,14 @@ SELECT * FROM FACETS_DEV.SILVER.REJECTED_PROVIDERS;
 -- Confirmed with:
 SELECT COUNT(*) FROM FACETS_DEV.SILVER.REJECTED_PROVIDERS;  -- decrements
 SELECT * FROM FACETS_DEV.SILVER.PROVIDER WHERE IS_CURRENT = TRUE AND PRPR_ID = <id>;  -- appears
+```
+
+## Demo: Gold Architecture (Phase 1 Scaffold)
+
+```sql
+-- Show the Gold layer exists and is queryable
+SELECT model_description FROM FACETS_DEV.GOLD.GOLD_MEMBER_ENROLLMENT;
+SELECT model_description FROM FACETS_DEV.GOLD.GOLD_PROVIDER_DIRECTORY;
+SELECT model_description FROM FACETS_DEV.GOLD.GOLD_ELIGIBILITY_SNAPSHOT;
+-- Each returns one row describing the Phase 2 analytic logic to be built.
 ```

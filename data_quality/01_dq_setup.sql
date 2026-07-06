@@ -1,4 +1,9 @@
 /*
+
+ONE-TIME SETUP. 
+NO NEED TO RUN AGAIN DAY OF DEMO. 
+NO NEED TO RUN OVER AND OVER AGAIN UNLESS CHANGES.
+
 ================================================================================
   CalOptima RFP 26-038 | Topic 9: Data Quality Demo
   File: 01_dq_setup.sql
@@ -21,11 +26,11 @@ DROP DATABASE IF EXISTS zzFACETS_DEV_CLONE;
    SECTION A: Clone FACETS_DEV and create DQ_POLICIES schema
    ============================================================================ */
 
-CREATE DATABASE zzFACETS_DEV_CLONE
+CREATE DATABASE IF NOT EXISTS zzFACETS_DEV_CLONE
   CLONE FACETS_DEV
   COMMENT = 'Data Quality demo clone — CalOptima RFP 26-038 Topic 9';
 
-CREATE SCHEMA zzFACETS_DEV_CLONE.DQ_POLICIES
+CREATE SCHEMA IF NOT EXISTS zzFACETS_DEV_CLONE.DQ_POLICIES
   COMMENT = 'Custom data metric functions for healthcare data quality';
 
 USE DATABASE zzFACETS_DEV_CLONE;

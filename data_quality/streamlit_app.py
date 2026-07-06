@@ -55,16 +55,17 @@ def q(sql: str) -> pd.DataFrame:
 status_sql = f"""
 SELECT
   METRIC_NAME,
-  ARGUMENT_NAMES[0]::VARCHAR AS COLUMN_NAME,
+  ARGUMENT_NAMES AS COLUMN_NAME,
   EXPECTATION_NAME,
   EXPECTATION_EXPRESSION,
-  LATEST_VALUE,
+  VALUE,
   EXPECTATION_VIOLATED,
-  LATEST_MEASUREMENT_TIME
+  MEASUREMENT_TIME
 FROM SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_EXPECTATION_STATUS
 WHERE TABLE_NAME     = '{TBL}'
   AND TABLE_SCHEMA   = '{SCH}'
   AND TABLE_DATABASE = '{DB}'
+QUALIFY ROW_NUMBER() OVER (PARTITION BY METRIC_NAME, ARGUMENT_NAMES, EXPECTATION_NAME ORDER BY MEASUREMENT_TIME DESC) = 1
 ORDER BY EXPECTATION_VIOLATED DESC, METRIC_NAME
 """
 
@@ -72,8 +73,8 @@ history_sql = f"""
 SELECT
   MEASUREMENT_TIME,
   METRIC_NAME,
-  COALESCE(ARGUMENT_NAMES[0]::VARCHAR, '(table)') AS ARGUMENT_NAME,
-  METRIC_NAME || ' — ' || COALESCE(ARGUMENT_NAMES[0]::VARCHAR, 'table') AS METRIC_LABEL,
+  COALESCE(ARGUMENT_NAMES, '(table)') AS ARGUMENT_NAME,
+  METRIC_NAME || ' — ' || COALESCE(ARGUMENT_NAMES, 'table') AS METRIC_LABEL,
   VALUE
 FROM TABLE(SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS(
   REF_ENTITY_NAME   => '{FQTN}',
@@ -97,8 +98,8 @@ rc_df = history_df[history_df["METRIC_NAME"] == "ROW_COUNT"] if not history_df.e
 member_count = int(rc_df["VALUE"].iloc[-1]) if not rc_df.empty else "—"
 
 last_eval = (
-    status_df["LATEST_MEASUREMENT_TIME"].max().strftime("%H:%M:%S")
-    if not status_df.empty and pd.notna(status_df["LATEST_MEASUREMENT_TIME"].max())
+    status_df["MEASUREMENT_TIME"].max().strftime("%H:%M:%S")
+    if not status_df.empty and pd.notna(status_df["MEASUREMENT_TIME"].max())
     else "—"
 )
 
@@ -125,22 +126,22 @@ if not status_df.empty:
         {True: "FAIL", False: "PASS"}
     )
     display["SEVERITY"] = display["METRIC_NAME"].map(SEVERITY).fillna("LOW")
-    display["LATEST_MEASUREMENT_TIME"] = pd.to_datetime(
-        display["LATEST_MEASUREMENT_TIME"]
+    display["MEASUREMENT_TIME"] = pd.to_datetime(
+        display["MEASUREMENT_TIME"]
     ).dt.strftime("%Y-%m-%d %H:%M:%S")
 
     grid = display[[
         "STATUS", "METRIC_NAME", "COLUMN_NAME",
-        "EXPECTATION_EXPRESSION", "LATEST_VALUE", "SEVERITY",
-        "LATEST_MEASUREMENT_TIME"
+        "EXPECTATION_EXPRESSION", "VALUE", "SEVERITY",
+        "MEASUREMENT_TIME"
     ]].rename(columns={
         "STATUS":                   "Status",
         "METRIC_NAME":              "Rule",
         "COLUMN_NAME":              "Column",
         "EXPECTATION_EXPRESSION":   "Pass Condition",
-        "LATEST_VALUE":             "Current Value",
+        "VALUE":             "Current Value",
         "SEVERITY":                 "Severity",
-        "LATEST_MEASUREMENT_TIME":  "Last Evaluated",
+        "MEASUREMENT_TIME":  "Last Evaluated",
     })
 
     def color_status(val):
@@ -174,20 +175,20 @@ violations_df = status_df[status_df["EXPECTATION_VIOLATED"] == True].copy() if n
 
 if not violations_df.empty:
     violations_df["SEVERITY"] = violations_df["METRIC_NAME"].map(SEVERITY).fillna("LOW")
-    violations_df["LATEST_MEASUREMENT_TIME"] = pd.to_datetime(
-        violations_df["LATEST_MEASUREMENT_TIME"]
+    violations_df["MEASUREMENT_TIME"] = pd.to_datetime(
+        violations_df["MEASUREMENT_TIME"]
     ).dt.strftime("%Y-%m-%d %H:%M:%S")
 
     vgrid = violations_df[[
         "SEVERITY", "METRIC_NAME", "COLUMN_NAME",
-        "EXPECTATION_EXPRESSION", "LATEST_VALUE", "LATEST_MEASUREMENT_TIME"
+        "EXPECTATION_EXPRESSION", "VALUE", "MEASUREMENT_TIME"
     ]].rename(columns={
         "SEVERITY":                 "Severity",
         "METRIC_NAME":              "Rule",
         "COLUMN_NAME":              "Column",
         "EXPECTATION_EXPRESSION":   "Pass Condition",
-        "LATEST_VALUE":             "Violation Count",
-        "LATEST_MEASUREMENT_TIME":  "Detected At",
+        "VALUE":             "Violation Count",
+        "MEASUREMENT_TIME":  "Detected At",
     }).sort_values(
         by="Severity",
         key=lambda s: s.map({"HIGH": 0, "MEDIUM": 1, "LOW": 2})

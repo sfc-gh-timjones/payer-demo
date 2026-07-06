@@ -4,6 +4,9 @@ DEMO: Ingesting data into Snowflake via Internal Stage (backup option).
   No cloud storage integration required — files uploaded manually via
   Snowsight or SnowSQL PUT command.
 
+  NOTE: AUTO_INGEST on internal named stages is supported on AWS-hosted
+  accounts only (does not work on Azure or GCP). This account is AWS.
+
 Files needed in stage:
   csv: pharmacy_claims.csv, pharmacy_claims_bad_records.csv
   xml: medical_claims.xml
@@ -161,15 +164,15 @@ FROM TABLE(VALIDATE(pharmacy_claims, JOB_ID => '_last'));
 LOAD VIA SNOWPIPE 
 ************************************************************************/
 /***********************************************************************
-  Create pipe and validate. Internal stages do not support AUTO_INGEST
-  (cloud event notifications). Trigger loading by calling:
-    ALTER PIPE pipe_demo REFRESH;
-  or via the Snowpipe REST API insertFiles endpoint.
+  Create pipe and validate. AUTO_INGEST on an internal named stage is
+  supported on AWS-hosted accounts — Snowflake manages the SQS queue
+  internally. New files uploaded to @MY_STAGE are ingested automatically.
 
 ************************************************************************/
 
 
 CREATE OR REPLACE PIPE pipe_demo
+AUTO_INGEST = TRUE
   AS
     COPY INTO pharmacy_claims
     FROM @MY_STAGE
@@ -178,8 +181,7 @@ CREATE OR REPLACE PIPE pipe_demo
     MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;
 
 -- Upload manually: add pharmacy_claims_inc1.csv, pharmacy_claims_inc2.csv to @MY_STAGE
--- then trigger the pipe:
-ALTER PIPE pipe_demo REFRESH;
+-- Snowpipe will auto-ingest them as they land.
 
 SHOW PIPES;
 
@@ -202,8 +204,7 @@ DESCRIBE TABLE pharmacy_claims;
 
 -- Step 2: Upload pharmacy_claims_add_refillnum.csv to @MY_STAGE manually
 --   (Snowsight: Data > Add Data > Load files into a Stage > select MY_STAGE)
--- Then trigger the pipe:
-ALTER PIPE pipe_demo REFRESH;
+-- Snowpipe auto-ingests it — no manual trigger needed.
 
 -- Step 3: After pipe ingests — REFILL_NUMBER was added automatically
 DESCRIBE TABLE pharmacy_claims;

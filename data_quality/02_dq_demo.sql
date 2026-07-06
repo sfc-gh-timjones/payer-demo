@@ -23,11 +23,22 @@ USE SCHEMA SILVER;
    ============================================================================ */
 
 -- All DMF associations on the MEMBER table
-SHOW DATA METRIC FUNCTIONS IN TABLE SILVER.MEMBER;
+SELECT
+  METRIC_NAME,
+  METRIC_DATABASE_NAME || '.' || METRIC_SCHEMA_NAME AS metric_source,
+  ARGUMENT_NAMES[0]::VARCHAR                        AS column_name,
+  SCHEDULE,
+  SCHEDULE_STATUS
+FROM TABLE(
+  INFORMATION_SCHEMA.DATA_METRIC_FUNCTION_REFERENCES(
+    REF_ENTITY_NAME   => 'SILVER.MEMBER',
+    REF_ENTITY_DOMAIN => 'TABLE'
+  )
+)
+ORDER BY METRIC_NAME;
 
--- Describe what each custom DMF does
-DESCRIBE DATA METRIC FUNCTION DQ_POLICIES.INVALID_NPI_COUNT;
-DESCRIBE DATA METRIC FUNCTION DQ_POLICIES.MEDICAID_MISSING_BIC_COUNT;
+-- Custom DMF definitions in DQ_POLICIES
+SHOW DATA METRIC FUNCTIONS IN SCHEMA DQ_POLICIES;
 
 /* ============================================================================
    STEP 2: Clean baseline — all expectations passing
@@ -37,7 +48,7 @@ DESCRIBE DATA METRIC FUNCTION DQ_POLICIES.MEDICAID_MISSING_BIC_COUNT;
 
 SELECT
   METRIC_NAME,
-  ARGUMENT_NAME,
+  ARGUMENT_NAMES[0]::VARCHAR AS column_name,
   EXPECTATION_EXPRESSION,
   LATEST_VALUE,
   EXPECTATION_VIOLATED,
@@ -77,7 +88,7 @@ SELECT
   MECD_BIC,
   ACTIVE_PCP_NPI,
   SILVER_LOADED_AT
-FROM zzFACETS_DEV_CLONE.SILVER.MEMBER
+FROM SILVER.MEMBER
 WHERE MEME_ID >= 9000000
    OR MEME_LAST_NAME LIKE 'DUPLICATE_%'
 ORDER BY SILVER_LOADED_AT DESC;
@@ -89,7 +100,7 @@ ORDER BY SILVER_LOADED_AT DESC;
 
 SELECT
   METRIC_NAME,
-  ARGUMENT_NAME,
+  ARGUMENT_NAMES[0]::VARCHAR AS column_name,
   EXPECTATION_EXPRESSION,
   LATEST_VALUE,
   EXPECTATION_VIOLATED,
@@ -102,11 +113,11 @@ ORDER BY EXPECTATION_VIOLATED DESC, METRIC_NAME;
 
 -- Violations only — the "alert dashboard" view
 SELECT
-  METRIC_NAME                             AS rule_name,
-  ARGUMENT_NAME                           AS column_checked,
-  EXPECTATION_EXPRESSION                  AS pass_threshold,
-  LATEST_VALUE                            AS current_value,
-  LATEST_MEASUREMENT_TIME                 AS detected_at
+  METRIC_NAME                                AS rule_name,
+  ARGUMENT_NAMES[0]::VARCHAR                 AS column_checked,
+  EXPECTATION_EXPRESSION                     AS pass_threshold,
+  LATEST_VALUE                               AS current_value,
+  LATEST_MEASUREMENT_TIME                    AS detected_at
 FROM SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_EXPECTATION_STATUS
 WHERE TABLE_NAME         = 'MEMBER'
   AND TABLE_SCHEMA       = 'SILVER'
@@ -121,7 +132,7 @@ ORDER BY LATEST_MEASUREMENT_TIME DESC;
    ============================================================================ */
 
 -- Alert state and last triggered time
-SHOW ALERTS LIKE 'MEMBER_DQ_ALERT' IN SCHEMA zzFACETS_DEV_CLONE.SILVER;
+SHOW ALERTS LIKE 'MEMBER_DQ_ALERT' IN SCHEMA SILVER;
 
 -- Alert execution history
 SELECT
@@ -130,7 +141,7 @@ SELECT
   CONDITION_QUERY_ID,
   SCHEDULED_TIME,
   COMPLETED_TIME,
-  ERROR_MESSAGE
+  SQL_ERROR_MESSAGE
 FROM TABLE(INFORMATION_SCHEMA.ALERT_HISTORY(
   SCHEDULED_TIME_RANGE_START => DATEADD('HOUR', -1, CURRENT_TIMESTAMP()),
   RESULT_LIMIT => 10
@@ -148,9 +159,8 @@ ORDER BY SCHEDULED_TIME DESC;
 SELECT
   MEASUREMENT_TIME,
   METRIC_NAME,
-  ARGUMENT_NAME,
+  ARGUMENT_NAMES[0]::VARCHAR AS column_name,
   VALUE,
-  -- Annotate clean vs dirty periods
   CASE
     WHEN VALUE = 0 THEN 'CLEAN'
     WHEN VALUE > 0 THEN 'VIOLATION'
@@ -167,7 +177,7 @@ LIMIT 50;
 SELECT
   MEASUREMENT_TIME,
   METRIC_NAME,
-  ARGUMENT_NAME,
+  ARGUMENT_NAMES[0]::VARCHAR AS column_name,
   VALUE AS metric_value
 FROM TABLE(SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS(
   REF_ENTITY_NAME   => 'zzFACETS_DEV_CLONE.SILVER.MEMBER',
@@ -207,7 +217,7 @@ ORDER BY MEASUREMENT_TIME;
    "Let's restore the clean state and confirm all expectations pass again."
    ============================================================================ */
 
-CALL zzFACETS_DEV_CLONE.SILVER.CLEAN_DIRTY_DATA();
+CALL CLEAN_DIRTY_DATA();
 
 -- Wait ~30 seconds for TRIGGER_ON_CHANGES to fire, then re-run Step 2 to
 -- confirm all expectations return to EXPECTATION_VIOLATED = FALSE.
@@ -234,7 +244,7 @@ WHERE TABLE_NAME      = 'MEMBER'
 -- Active violations with severity mapping
 SELECT
   METRIC_NAME                AS rule,
-  ARGUMENT_NAME              AS column_name,
+  ARGUMENT_NAMES[0]::VARCHAR AS column_name,
   LATEST_VALUE               AS violation_count,
   LATEST_MEASUREMENT_TIME    AS last_checked,
   CASE

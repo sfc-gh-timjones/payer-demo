@@ -55,7 +55,7 @@ def q(sql: str) -> pd.DataFrame:
 status_sql = f"""
 SELECT
   METRIC_NAME,
-  ARGUMENT_NAME,
+  ARGUMENT_NAMES[0]::VARCHAR AS COLUMN_NAME,
   EXPECTATION_NAME,
   EXPECTATION_EXPRESSION,
   LATEST_VALUE,
@@ -72,8 +72,8 @@ history_sql = f"""
 SELECT
   MEASUREMENT_TIME,
   METRIC_NAME,
-  COALESCE(ARGUMENT_NAME, '(table)') AS ARGUMENT_NAME,
-  METRIC_NAME || ' — ' || COALESCE(ARGUMENT_NAME, 'table') AS METRIC_LABEL,
+  COALESCE(ARGUMENT_NAMES[0]::VARCHAR, '(table)') AS ARGUMENT_NAME,
+  METRIC_NAME || ' — ' || COALESCE(ARGUMENT_NAMES[0]::VARCHAR, 'table') AS METRIC_LABEL,
   VALUE
 FROM TABLE(SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS(
   REF_ENTITY_NAME   => '{FQTN}',
@@ -130,13 +130,13 @@ if not status_df.empty:
     ).dt.strftime("%Y-%m-%d %H:%M:%S")
 
     grid = display[[
-        "STATUS", "METRIC_NAME", "ARGUMENT_NAME",
+        "STATUS", "METRIC_NAME", "COLUMN_NAME",
         "EXPECTATION_EXPRESSION", "LATEST_VALUE", "SEVERITY",
         "LATEST_MEASUREMENT_TIME"
     ]].rename(columns={
         "STATUS":                   "Status",
         "METRIC_NAME":              "Rule",
-        "ARGUMENT_NAME":            "Column",
+        "COLUMN_NAME":              "Column",
         "EXPECTATION_EXPRESSION":   "Pass Condition",
         "LATEST_VALUE":             "Current Value",
         "SEVERITY":                 "Severity",
@@ -179,12 +179,12 @@ if not violations_df.empty:
     ).dt.strftime("%Y-%m-%d %H:%M:%S")
 
     vgrid = violations_df[[
-        "SEVERITY", "METRIC_NAME", "ARGUMENT_NAME",
+        "SEVERITY", "METRIC_NAME", "COLUMN_NAME",
         "EXPECTATION_EXPRESSION", "LATEST_VALUE", "LATEST_MEASUREMENT_TIME"
     ]].rename(columns={
         "SEVERITY":                 "Severity",
         "METRIC_NAME":              "Rule",
-        "ARGUMENT_NAME":            "Column",
+        "COLUMN_NAME":              "Column",
         "EXPECTATION_EXPRESSION":   "Pass Condition",
         "LATEST_VALUE":             "Violation Count",
         "LATEST_MEASUREMENT_TIME":  "Detected At",

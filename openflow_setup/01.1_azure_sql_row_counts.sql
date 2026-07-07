@@ -48,12 +48,12 @@ SELECT 'CMC_MEPE_PRCS_ELIG'    AS table_name, COUNT(*) AS row_count FROM raw.CMC
 SELECT 'CMC_MEES_EXCHANGE'     AS table_name, COUNT(*) AS row_count FROM raw.CMC_MEES_EXCHANGE     UNION ALL
 SELECT 'CMC_MECD_MEDICAID'     AS table_name, COUNT(*) AS row_count FROM raw.CMC_MECD_MEDICAID     UNION ALL
 SELECT 'CMC_MESU_SUBSIDY'      AS table_name, COUNT(*) AS row_count FROM raw.CMC_MESU_SUBSIDY
-ORDER BY table_name;
+ORDER BY row_count desc;
 
 -- =============================================================================
 -- SECTION 2: SELECT * per table — highlight and run whichever you need
 -- =============================================================================
-
+/*
 -- Networks & Agreements
 SELECT * FROM raw.CMC_NWNW_NETWORK;
 SELECT * FROM raw.CMC_AGAG_AGREEMENT;
@@ -100,3 +100,4 @@ SELECT * FROM raw.CMC_MEPE_PRCS_ELIG;
 SELECT * FROM raw.CMC_MEES_EXCHANGE;
 SELECT * FROM raw.CMC_MECD_MEDICAID;
 SELECT * FROM raw.CMC_MESU_SUBSIDY;
+*/

@@ -291,16 +291,24 @@ elif st.session_state.get("row_count_result"):
             continue
         parts = re.split(r"  +", line)
         if len(parts) >= 5:
+            sf_raw = parts[2].strip()
+            # Add comma formatting to Snowflake column (stored proc returns plain int string)
+            try:
+                sf_display = f"{int(sf_raw):,}"
+            except ValueError:
+                sf_display = sf_raw  # NOT FOUND or other non-numeric
             rows.append({
-                "Table":      parts[0].strip(),
-                "SQL Server": parts[1].strip(),
-                "Snowflake":  parts[2].strip(),
-                "Delta":      parts[3].strip(),
-                "Status":     parts[4].strip(),
+                "Table":         parts[0].strip(),
+                "SQL Server":    parts[1].strip(),
+                "Snowflake":     sf_display,
+                "Delta":         parts[3].strip(),
+                "Status":        parts[4].strip(),
+                "_sort_key":     int(parts[1].strip().replace(",", "")) if parts[1].strip().replace(",", "").isdigit() else 0,
             })
 
     if rows:
-        val_df  = pd.DataFrame(rows)
+        val_df = pd.DataFrame(rows)
+        val_df = val_df.sort_values("_sort_key", ascending=False).drop(columns=["_sort_key"]).reset_index(drop=True)
         in_sync = int(val_df["Status"].str.contains("✓").sum())
         gaps    = int(val_df["Status"].str.contains("✗|⚠").sum())
 

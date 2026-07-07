@@ -21,19 +21,17 @@ USE SCHEMA   UTILS;
 -- STEP 1: Incremental Load Stored Procedure
 -- =============================================================================
 
-CREATE OR REPLACE PROCEDURE FACETS_INCREMENTAL_LOAD(
-    SQL_SERVER_HOST STRING,
-    SQL_SERVER_DB   STRING
-)
-RETURNS STRING
+CREATE OR REPLACE PROCEDURE FACETS_BRONZE.UTILS.FACETS_INCREMENTAL_LOAD("SQL_SERVER_HOST" VARCHAR, "SQL_SERVER_DB" VARCHAR)
+RETURNS VARCHAR
 LANGUAGE PYTHON
 RUNTIME_VERSION = '3.10'
 ARTIFACT_REPOSITORY = snowflake.snowpark.pypi_shared_repository
-PACKAGES = ('snowflake-snowpark-python', 'python-tds', 'certifi')
-EXTERNAL_ACCESS_INTEGRATIONS = (AZURE_SQL_FACETS_EAI)
-SECRETS = ('facets_sql_creds' = FACETS_BRONZE.UTILS.FACETS_SQL_CREDS)
+PACKAGES = ('snowflake-snowpark-python','python-tds','certifi')
 HANDLER = 'incremental_load'
-COMMENT = 'Tier-weighted inserts/updates/deletes across all 35 Facets tables'
+EXTERNAL_ACCESS_INTEGRATIONS = (AZURE_SQL_FACETS_EAI)
+SECRETS = ('facets_sql_creds'=FACETS_BRONZE.UTILS.FACETS_SQL_CREDS)
+COMMENT='Tier-weighted inserts/updates/deletes across all 35 Facets tables'
+EXECUTE AS OWNER
 AS
 $$
 import pytds

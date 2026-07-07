@@ -1,3 +1,4 @@
+import re
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -41,6 +42,21 @@ with st.sidebar:
 @st.cache_data(ttl=60)
 def q(sql):
     return session.sql(sql).to_pandas()
+
+@st.cache_data(ttl=300)
+def load_app_config():
+    """Read SQL Server host/db from FACETS_BRONZE.UTILS.APP_CONFIG."""
+    try:
+        df = session.sql(
+            "SELECT key, value FROM FACETS_BRONZE.UTILS.APP_CONFIG"
+        ).to_pandas()
+        return dict(zip(df["KEY"], df["VALUE"]))
+    except Exception:
+        return {}
+
+app_config = load_app_config()
+DEFAULT_SQL_HOST = app_config.get("SQL_SERVER_HOST", "tjonessqlserver.database.windows.net")
+DEFAULT_SQL_DB   = app_config.get("SQL_SERVER_DB",   "openflow")
 
 # ── 1. Per-table ingestion status ─────────────────────────────────────────────
 table_sql = f"""
@@ -228,6 +244,88 @@ with col2:
         st.caption("NiFi → Snowflake via Snowpipe Streaming (PublishChangeDataSnowpipeStreaming)")
     else:
         st.info("No rows sent in this window.")
+
+# ── Source Row Count Validation ──────────────────────────────────────────────
+st.divider()
+st.subheader("Source Row Count Validation")
+st.caption("Compare Azure SQL Server (source) vs Snowflake FACETS_BRONZE.RAW (active rows only, _snowflake_deleted = FALSE)")
+
+v_col1, v_col2, v_col3 = st.columns([3, 2, 2])
+with v_col1:
+    sql_host = st.text_input("SQL Server Host", value=DEFAULT_SQL_HOST)
+with v_col2:
+    sql_db = st.text_input("Database", value=DEFAULT_SQL_DB)
+with v_col3:
+    st.write("")  # vertical align
+    st.write("")
+    run_validation = st.button("🔄 Refresh from Source", type="primary", use_container_width=True)
+
+if run_validation:
+    with st.spinner("Connecting to Azure SQL Server and comparing row counts — this takes ~30s..."):
+        try:
+            result_df = session.sql(f"""
+                CALL FACETS_BRONZE.UTILS.FACETS_ROW_COUNT_VALIDATION(
+                    '{sql_host}',
+                    '{sql_db}'
+                )
+            """).to_pandas()
+            st.session_state["row_count_result"] = result_df.iloc[0, 0]
+            st.session_state["row_count_ts"]     = datetime.now()
+            st.session_state.pop("row_count_error", None)
+        except Exception as e:
+            st.session_state["row_count_error"] = str(e)
+            st.session_state.pop("row_count_result", None)
+
+if st.session_state.get("row_count_error"):
+    st.error(f"Validation failed: {st.session_state['row_count_error']}")
+elif st.session_state.get("row_count_result"):
+    text = st.session_state["row_count_result"]
+    ts   = st.session_state["row_count_ts"]
+
+    # Parse the formatted text output into rows
+    rows = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if (not line or line.startswith("-") or line.startswith("TABLE")
+                or line.startswith("TOTAL") or line.startswith("STATUS")):
+            continue
+        parts = re.split(r"  +", line)
+        if len(parts) >= 5:
+            rows.append({
+                "Table":      parts[0].strip(),
+                "SQL Server": parts[1].strip(),
+                "Snowflake":  parts[2].strip(),
+                "Delta":      parts[3].strip(),
+                "Status":     parts[4].strip(),
+            })
+
+    if rows:
+        val_df  = pd.DataFrame(rows)
+        in_sync = int(val_df["Status"].str.contains("✓").sum())
+        gaps    = int(val_df["Status"].str.contains("✗|⚠").sum())
+
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Tables Checked", len(rows))
+        m2.metric("In Sync / Ahead", in_sync)
+        m3.metric("Gaps / Missing",  gaps,
+                  delta=f"{gaps} tables" if gaps > 0 else None,
+                  delta_color="inverse")
+
+        def highlight_gaps(row):
+            if any(c in str(row["Status"]) for c in ("✗", "⚠")):
+                return ["background-color: #fde8e8"] * len(row)
+            return [""] * len(row)
+
+        st.dataframe(
+            val_df.style.apply(highlight_gaps, axis=1),
+            use_container_width=True,
+            height=min(700, 35 * len(rows) + 60),
+        )
+
+        if gaps == 0:
+            st.success(f"✓ ALL TABLES IN SYNC — Validated at {ts.strftime('%Y-%m-%d %H:%M MT')}")
+        else:
+            st.warning(f"⚠ GAPS DETECTED ({gaps} tables) — Validated at {ts.strftime('%Y-%m-%d %H:%M MT')}")
 
 st.caption(
     f"60s cache · All times Mountain Time (MDT/UTC-6) · "

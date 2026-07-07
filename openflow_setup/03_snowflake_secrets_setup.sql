@@ -53,6 +53,31 @@ CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION AZURE_SQL_FACETS_EAI
     COMMENT = 'Allows Facets demo stored procedures to connect to Azure SQL Server';
 
 -- =============================================================================
+-- App Config: key/value table read by the Openflow Observability Streamlit app
+-- Add one row per SQL Server instance so the app knows which host/db to validate.
+-- The Streamlit app reads these as defaults — the user can override them in the UI.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS FACETS_BRONZE.UTILS.APP_CONFIG (
+    key     VARCHAR NOT NULL,
+    value   VARCHAR NOT NULL,
+    comment VARCHAR
+);
+
+-- Set your SQL Server hostname and database here.
+-- Re-run this block when deploying to a new Snowflake account.
+MERGE INTO FACETS_BRONZE.UTILS.APP_CONFIG AS t
+USING (
+    SELECT * FROM VALUES
+        ('SQL_SERVER_HOST', 'tjonessqlserver.database.windows.net', 'Azure SQL Server hostname for row count validation'),
+        ('SQL_SERVER_DB',   'openflow',                             'Azure SQL Server database for row count validation')
+    AS v(key, value, comment)
+) AS s ON t.key = s.key
+WHEN MATCHED     THEN UPDATE SET t.value = s.value, t.comment = s.comment
+WHEN NOT MATCHED THEN INSERT (key, value, comment) VALUES (s.key, s.value, s.comment);
+
+SELECT * FROM FACETS_BRONZE.UTILS.APP_CONFIG;
+
+-- =============================================================================
 -- Verify
 -- =============================================================================
 DESCRIBE SECRET           FACETS_SQL_CREDS;

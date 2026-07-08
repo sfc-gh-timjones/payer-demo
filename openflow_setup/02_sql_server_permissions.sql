@@ -71,6 +71,7 @@ ALTER TABLE raw.CMC_MEPE_PRCS_ELIG       ENABLE CHANGE_TRACKING WITH (TRACK_COLU
 ALTER TABLE raw.CMC_MEES_EXCHANGE        ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF);
 ALTER TABLE raw.CMC_MECD_MEDICAID        ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF);
 ALTER TABLE raw.CMC_MESU_SUBSIDY         ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF);
+ALTER TABLE raw.CMC_PRTP_PROV_TYPE       ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF);
 GO
 -- ---------------------------------------------------------------------------
 -- Step 3: Set default schema to raw
@@ -188,6 +189,9 @@ GRANT VIEW CHANGE TRACKING ON raw.CMC_MECD_MEDICAID TO openflow_user;
 
 GRANT SELECT ON raw.CMC_MESU_SUBSIDY          TO openflow_user;
 GRANT VIEW CHANGE TRACKING ON raw.CMC_MESU_SUBSIDY TO openflow_user;
+
+GRANT SELECT ON raw.CMC_PRTP_PROV_TYPE        TO openflow_user;
+GRANT VIEW CHANGE TRACKING ON raw.CMC_PRTP_PROV_TYPE TO openflow_user;
 GO
 
 -- ---------------------------------------------------------------------------
@@ -210,7 +214,7 @@ GO
 
 -- ---------------------------------------------------------------------------
 -- VERIFICATION: Confirm Change Tracking is active on all 35 tables
--- Expected: 35 rows returned, one per table in raw schema
+-- Expected: 36 rows returned, one per table in raw schema
 -- ---------------------------------------------------------------------------
 SELECT
     s.name          AS schema_name,

@@ -503,5 +503,44 @@ CREATE TABLE raw.CMC_MESU_SUBSIDY (
     ROW_HASH_VALUE      VARBINARY(32) NULL
 );
 
-PRINT 'All 35 Facets demo tables created in openflow.raw successfully.';
+-- =============================================================================
+-- GROUP 8: STANDALONE REFERENCE / LOOKUP TABLE (no FK dependencies)
+-- =============================================================================
+
+-- Provider Type reference codes
+-- Lookup table with ~15 rows; no FK parents or children
+CREATE TABLE raw.CMC_PRTP_PROV_TYPE (
+    PRTP_ID             INT           NOT NULL,
+    PRTP_CODE           VARCHAR(10)   NOT NULL,
+    PRTP_DESC           VARCHAR(100)  NOT NULL,
+    PRTP_CATEGORY       VARCHAR(30)   NULL,
+    PRTP_ACTIVE_FLAG    CHAR(1)       NOT NULL DEFAULT 'Y',
+    PRTP_SORT_ORDER     INT           NULL,
+    ETL_PROCESS_EXECUTION_ID BIGINT   NULL,
+    ROW_HASH_VALUE      VARBINARY(32) NULL,
+    CONSTRAINT PK_CMC_PRTP PRIMARY KEY (PRTP_ID)
+);
+GO
+
+INSERT INTO raw.CMC_PRTP_PROV_TYPE
+    (PRTP_ID, PRTP_CODE, PRTP_DESC, PRTP_CATEGORY, PRTP_ACTIVE_FLAG, PRTP_SORT_ORDER)
+VALUES
+    (1,  'MD',  'Medical Doctor',                   'Physician',        'Y', 1),
+    (2,  'DO',  'Doctor of Osteopathy',              'Physician',        'Y', 2),
+    (3,  'NP',  'Nurse Practitioner',                'Mid-Level',        'Y', 3),
+    (4,  'PA',  'Physician Assistant',               'Mid-Level',        'Y', 4),
+    (5,  'RN',  'Registered Nurse',                  'Nursing',          'Y', 5),
+    (6,  'HOS', 'Hospital - Acute Care',             'Facility',         'Y', 6),
+    (7,  'SNF', 'Skilled Nursing Facility',          'Facility',         'Y', 7),
+    (8,  'HHC', 'Home Health Care Agency',           'Facility',         'Y', 8),
+    (9,  'DME', 'Durable Medical Equipment',         'Ancillary',        'Y', 9),
+    (10, 'PHR', 'Pharmacy',                          'Ancillary',        'Y', 10),
+    (11, 'LAB', 'Clinical Laboratory',               'Ancillary',        'Y', 11),
+    (12, 'BHV', 'Behavioral Health Provider',        'Behavioral',       'Y', 12),
+    (13, 'DEN', 'Dental Provider',                   'Dental/Vision',    'Y', 13),
+    (14, 'VIS', 'Vision Provider',                   'Dental/Vision',    'Y', 14),
+    (15, 'TRN', 'Non-Emergency Medical Transport',   'Transportation',   'Y', 15);
+GO
+
+PRINT 'All 36 Facets demo tables created in openflow.raw successfully.';
 GO

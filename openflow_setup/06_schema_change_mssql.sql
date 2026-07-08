@@ -4,6 +4,14 @@
 --          This is the demo script for Scenario 3 (Schema Drift) in the CalOptima
 --          RFP 26-038 demonstration.
 --
+-- FACETS NAMING CONVENTION:
+--   CMC  = ClaimMaster Claims — TriZetto FACETS system prefix on every table
+--   PRTP = PRovider TyPe     — 4-letter entity code; all columns in this table
+--                              are prefixed PRTP_ to show table ownership
+--   Common column suffixes:  _ID = surrogate key, _CD = code, _DESC = description,
+--                            _DT = date, _DTM = datetime, _AMT = amount,
+--                            _FLAG / _IND = boolean indicator
+--
 -- TABLE CHOSEN: CMC_PRTP_PROV_TYPE
 --   - Standalone reference/lookup table — ZERO FK dependencies in or out
 --   - 15 pre-seeded rows (IDs 1-15), demo rows use IDs 9001-9005
@@ -47,11 +55,11 @@ GO
 -- =============================================================================
 
 ALTER TABLE raw.CMC_PRTP_PROV_TYPE
-    ALTER COLUMN PRTP_DESC VARCHAR(200);
+    ALTER COLUMN PRTP_DESC VARCHAR(200);  -- PRTP_DESC: provider type description (was 100 chars)
 GO
 
 ALTER TABLE raw.CMC_PRTP_PROV_TYPE
-    ADD PRTP_EFFECTIVE_DT DATE NULL;
+    ADD PRTP_EFFECTIVE_DT DATE NULL;      -- PRTP_EFFECTIVE_DT: date this provider type became active in CalOptima's system
 GO
 
 -- Confirm both changes applied

@@ -4,10 +4,12 @@
     incremental_strategy='merge',
     on_schema_change='sync_all_columns',
     full_refresh=false
-    -- full_refresh=false: protects SCD2 history from dbt run --full-refresh.
-    -- Even if the entire project is full-refreshed, this model runs incrementally.
-    -- To intentionally rebuild: DROP TABLE FACETS_DEV.SILVER.PROVIDER, then dbt run --select provider.
 ) }}
+{#
+  full_refresh=false: protects SCD2 history from dbt run --full-refresh.
+  Even if the entire project is full-refreshed, this model runs incrementally.
+  To intentionally rebuild: DROP TABLE FACETS_DEV.SILVER.PROVIDER, then dbt run --select provider.
+#}
 
 {% if is_incremental() %}
 

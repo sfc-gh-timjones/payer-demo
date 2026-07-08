@@ -33,12 +33,23 @@ GO
 
 -- =============================================================================
 -- STEP 2: Delete the 5 demo rows (IDs 101–105)
+--
+-- CMC_NWPR_RELATION has a FK on NWNW_ID, so the incremental load proc may have
+-- inserted NWPR child rows pointing at the new network IDs. Delete children first.
 -- =============================================================================
 
+-- Delete any NWPR child rows that reference the demo network IDs
+DELETE FROM raw.CMC_NWPR_RELATION
+WHERE NWNW_ID >= 101;
+
+SELECT @@ROWCOUNT AS nwpr_rows_deleted;
+GO
+
+-- Now safe to delete the parent network rows
 DELETE FROM raw.CMC_NWNW_NETWORK
 WHERE NWNW_ID >= 101;
 
-SELECT @@ROWCOUNT AS rows_deleted;  -- expect 5
+SELECT @@ROWCOUNT AS nwnw_rows_deleted;  -- expect 5
 GO
 
 -- =============================================================================

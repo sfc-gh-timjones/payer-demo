@@ -38,14 +38,22 @@ SELECT * FROM raw.CMC_PRFA_FACILITY ORDER BY PRFA_ID;
 GO
 
 -- =============================================================================
--- STEP 2: Add the new column (schema change event)
+-- STEP 2: Schema changes
+--   a) Widen PRFA_FAC_TYPE from VARCHAR(10) to VARCHAR(50)
+--      Source type change — Snowflake maps both to TEXT so no downstream
+--      breakage. This demonstrates the pipeline handles type widening cleanly.
+--   b) Add PRFA_COUNTY VARCHAR(30) — new column picked up via schema evolution
 -- =============================================================================
+
+ALTER TABLE raw.CMC_PRFA_FACILITY
+    ALTER COLUMN PRFA_FAC_TYPE VARCHAR(50);
+GO
 
 ALTER TABLE raw.CMC_PRFA_FACILITY
     ADD PRFA_COUNTY VARCHAR(30) NULL;
 GO
 
--- Confirm the column was added
+-- Confirm both changes applied
 SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = 'raw' AND TABLE_NAME = 'CMC_PRFA_FACILITY'
@@ -53,9 +61,10 @@ ORDER BY ORDINAL_POSITION;
 GO
 
 -- =============================================================================
--- STEP 3: Insert 5 new facility records that include the new column
+-- STEP 3: Insert 5 new facility records
+--         PRFA_FAC_TYPE values kept <= 10 chars (original column width)
+--         to show the wider column isn't needed to avoid breakage.
 --         PRFA_IDs 9001-9005 are well above the ~300 seeded rows.
---         PRPR_IDs 1-5 are the first providers seeded by the initial load.
 -- =============================================================================
 
 INSERT INTO raw.CMC_PRFA_FACILITY

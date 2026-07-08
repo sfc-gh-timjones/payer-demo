@@ -36,11 +36,17 @@ SELECT @@ROWCOUNT AS rows_deleted;  -- expect 5
 GO
 
 -- =============================================================================
--- STEP 3: Drop the PRFA_COUNTY column
+-- STEP 3: Revert schema changes
+--   a) Drop PRFA_COUNTY column
+--   b) Narrow PRFA_FAC_TYPE back to VARCHAR(10)
 -- =============================================================================
 
 ALTER TABLE raw.CMC_PRFA_FACILITY
     DROP COLUMN PRFA_COUNTY;
+GO
+
+ALTER TABLE raw.CMC_PRFA_FACILITY
+    ALTER COLUMN PRFA_FAC_TYPE VARCHAR(10);
 GO
 
 -- =============================================================================

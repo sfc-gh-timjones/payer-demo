@@ -1,8 +1,0 @@
--- =============================================================================
--- FILE: 06.1_openflow_table_list.sql
--- PURPOSE: Reference only — table list has moved to 05.1_reset_snow.sql
---          which is the canonical source for the Openflow "Included Table Names"
---          parameter (used for both full resets and the schema drift demo).
---
--- See: openflow_setup/05.1_reset_snow.sql (STEP 3 section)
--- =============================================================================

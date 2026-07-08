@@ -117,12 +117,22 @@ SELECT
              THEN VALUE::FLOAT ELSE 0 END)                          AS dml_events,
     SUM(CASE WHEN RECORD_ATTRIBUTES:"counter"::VARCHAR = 'Rows Sent'
              AND RECORD_ATTRIBUTES:"component"::VARCHAR = 'PublishChangeDataSnowpipeStreaming'
-             THEN VALUE::FLOAT ELSE 0 END)                          AS rows_sent_snowflake
+             THEN VALUE::FLOAT ELSE 0 END)                          AS rows_sent_snowflake,
+    SUM(CASE WHEN RECORD_ATTRIBUTES:"counter"::VARCHAR = 'DML FlowFiles Emitted'
+             THEN VALUE::FLOAT ELSE 0 END)                          AS dml_flowfiles,
+    SUM(CASE WHEN RECORD_ATTRIBUTES:"counter"::VARCHAR = 'DDL FlowFiles Emitted'
+             THEN VALUE::FLOAT ELSE 0 END)                          AS ddl_flowfiles,
+    SUM(CASE WHEN RECORD_ATTRIBUTES:"counter"::VARCHAR = 'Batches Sent'
+             AND RECORD_ATTRIBUTES:"component"::VARCHAR = 'PublishChangeDataSnowpipeStreaming'
+             THEN VALUE::FLOAT ELSE 0 END)                          AS batches_sent
 FROM OPENFLOW.TELEMETRY.EVENTS
 WHERE RECORD_TYPE = 'METRIC'
   AND {OF_FILTER}
   AND RECORD:"metric"."name"::VARCHAR = 'processor.counter'
-  AND RECORD_ATTRIBUTES:"counter"::VARCHAR IN ('DML Events Processed', 'Rows Sent')
+  AND RECORD_ATTRIBUTES:"counter"::VARCHAR IN (
+        'DML Events Processed', 'Rows Sent',
+        'DML FlowFiles Emitted', 'DDL FlowFiles Emitted', 'Batches Sent'
+      )
   AND TIMESTAMP >= DATEADD('hour', -{hours_back}, CURRENT_TIMESTAMP())
 GROUP BY 1
 ORDER BY 1
@@ -244,6 +254,49 @@ with col2:
         st.caption("NiFi → Snowflake via Snowpipe Streaming (PublishChangeDataSnowpipeStreaming)")
     else:
         st.info("No rows sent in this window.")
+
+# ── Pipeline FlowFile counters ─────────────────────────────────────────────────
+st.divider()
+st.subheader("Pipeline FlowFile Counters")
+st.caption("Per polling cycle: DML FlowFiles = change rows captured · DDL FlowFiles = schema changes detected")
+
+total_dml_ff  = int(cdc_df["DML_FLOWFILES"].sum())  if not cdc_df.empty else 0
+total_ddl_ff  = int(cdc_df["DDL_FLOWFILES"].sum())  if not cdc_df.empty else 0
+total_batches = int(cdc_df["BATCHES_SENT"].sum())    if not cdc_df.empty else 0
+
+ff1, ff2, ff3 = st.columns(3)
+ff1.metric(f"DML FlowFiles Emitted ({hours_back}h)",  f"{total_dml_ff:,}")
+ff2.metric(
+    f"DDL FlowFiles Emitted ({hours_back}h)",
+    f"{total_ddl_ff:,}",
+    delta=f"{total_ddl_ff} schema change(s) detected" if total_ddl_ff > 0 else None,
+    delta_color="off",
+)
+ff3.metric(f"Batches Sent to Snowflake ({hours_back}h)", f"{total_batches:,}")
+
+if total_ddl_ff > 0:
+    st.warning(f"⚠ {total_ddl_ff} DDL FlowFile(s) detected in the last {hours_back}h — a source schema change was captured by Openflow.")
+
+ff_col1, ff_col2 = st.columns(2)
+with ff_col1:
+    st.subheader("DML vs DDL FlowFiles Emitted (MT)")
+    if not cdc_df.empty and (cdc_df["DML_FLOWFILES"].sum() > 0 or cdc_df["DDL_FLOWFILES"].sum() > 0):
+        ff_chart = cdc_df.set_index("HOUR")[["DML_FLOWFILES", "DDL_FLOWFILES"]].rename(columns={
+            "DML_FLOWFILES": "DML FlowFiles",
+            "DDL_FLOWFILES": "DDL FlowFiles",
+        })
+        st.bar_chart(ff_chart, height=250)
+        st.caption("DDL spike = schema change detected on SQL Server (ALTER TABLE, column add/drop)")
+    else:
+        st.info("No FlowFiles in this window.")
+
+with ff_col2:
+    st.subheader("Batches Sent to Snowflake (MT)")
+    if not cdc_df.empty and cdc_df["BATCHES_SENT"].sum() > 0:
+        st.bar_chart(cdc_df.set_index("HOUR")["BATCHES_SENT"], height=250)
+        st.caption("Snowpipe Streaming batch submissions (PublishChangeDataSnowpipeStreaming)")
+    else:
+        st.info("No batches sent in this window.")
 
 # ── Source Row Count Validation ──────────────────────────────────────────────
 st.divider()

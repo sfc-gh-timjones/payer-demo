@@ -12,6 +12,14 @@
 --
 -- RUN THIS IN: Azure SQL Server (SSMS or Azure Data Studio)
 -- DATABASE:    openflow
+
+-- WORKFLOW:
+-- SNOWFLAKE FIRST
+-- 1. REMOVE FROM OPENFLOW REPLICATION
+-- 2. RUN BELOW SCRIPT
+
+--SQL SERVER
+-- Run revert script in mssql. 
 -- =============================================================================
 
 USE openflow;

@@ -4,11 +4,12 @@
 --          Drop the Bronze table, then re-add it to Openflow replication.
 --
 -- WORKFLOW:
---   1. Run 06.3_schema_revert_mssql.sql in SQL Server first
---   2. In Openflow UI: remove CMC_PRTP_PROV_TYPE from "Included Table Names"
---   3. Run the DROP TABLE below in Snowflake
---   4. In Openflow UI: add CMC_PRTP_PROV_TYPE back — fresh snapshot load
---   5. Run verification queries to confirm clean state
+-- SNOWFLAKE FIRST
+-- 1. REMOVE FROM OPENFLOW REPLICATION
+-- 2. RUN BELOW SCRIPT
+
+--SQL SERVER
+-- Run revert script in mssql. 
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;

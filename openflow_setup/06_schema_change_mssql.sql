@@ -1,24 +1,24 @@
 -- =============================================================================
 -- FILE: 06_schema_change_mssql.sql
--- PURPOSE: Simulate a source schema change on CMC_NWNW_NETWORK in Azure SQL Server.
---          This is the demo script for Scenario 3 (Schema Drift) and Scenario 6
---          (Failure and Recovery) in the CalOptima RFP 26-038 demonstration.
+-- PURPOSE: Simulate a source schema change on CMC_PRFA_FACILITY in Azure SQL Server.
+--          This is the demo script for Scenario 3 (Schema Drift) in the CalOptima
+--          RFP 26-038 demonstration.
 --
--- TABLE CHOSEN: CMC_NWNW_NETWORK
---   - Pure static reference data (networks like HMO-OC, PPO-OC, DSNP)
---   - Never receives inserts/updates/deletes in the incremental load proc —
---     any CDC activity on this table is 100% attributable to this script
---   - Currently ~20 rows; Openflow tracks all changes via change tracking
+-- TABLE CHOSEN: CMC_PRFA_FACILITY
+--   - Pure static data (facility records per provider), ~300 rows after re-seed
+--   - Never receives inserts/updates/deletes in the incremental load proc
+--   - No child tables reference it — deletes are always clean
+--   - Demo rows use PRFA_IDs 9001-9005 (well above the ~300 seeded rows)
+--     so the revert is simply: DELETE WHERE PRFA_ID >= 9001
 --
 -- WHAT THIS DEMONSTRATES:
---   1. ADD COLUMN — ALTER TABLE adds NWNW_REGION VARCHAR(30) to a live CDC'd table
---   2. OPENFLOW DETECTION — Openflow detects the schema change automatically via
---      change tracking; the Bronze table in Snowflake gains the column via
---      schema evolution (ENABLE_SCHEMA_EVOLUTION)
---   3. NEW RECORDS WITH NEW COLUMN — 5 inserts include the new column populated,
+--   1. ADD COLUMN — ALTER TABLE adds PRFA_COUNTY VARCHAR(30) mid-stream
+--   2. OPENFLOW DETECTION — Openflow detects the schema change via CT; the
+--      Bronze table in Snowflake gains the column via schema evolution
+--   3. NEW RECORDS WITH NEW COLUMN — 5 inserts populate the new column,
 --      showing the before/after split in Silver
 --
--- RUN THIS IN: Azure SQL Server (Management Studio, Azure Data Studio, or sqlcmd)
+-- RUN THIS IN: Azure SQL Server (SSMS or Azure Data Studio)
 -- DATABASE:    openflow
 -- =============================================================================
 
@@ -29,83 +29,62 @@ GO
 -- STEP 1: Confirm current state before the change
 -- =============================================================================
 
--- Current columns on the table
-SELECT
-    COLUMN_NAME,
-    DATA_TYPE,
-    CHARACTER_MAXIMUM_LENGTH,
-    IS_NULLABLE
+SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
 FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'raw'
-  AND TABLE_NAME   = 'CMC_NWNW_NETWORK'
+WHERE TABLE_SCHEMA = 'raw' AND TABLE_NAME = 'CMC_PRFA_FACILITY'
 ORDER BY ORDINAL_POSITION;
 
--- Current row count and data
-SELECT * FROM raw.CMC_NWNW_NETWORK ORDER BY NWNW_ID;
+SELECT * FROM raw.CMC_PRFA_FACILITY ORDER BY PRFA_ID;
 GO
 
 -- =============================================================================
 -- STEP 2: Add the new column (schema change event)
---
--- This ALTER TABLE will be captured by SQL Server Change Tracking and delivered
--- to Openflow on the next polling cycle (~15 minutes).
 -- =============================================================================
 
-ALTER TABLE raw.CMC_NWNW_NETWORK
-    ADD NWNW_REGION VARCHAR(30) NULL;
+ALTER TABLE raw.CMC_PRFA_FACILITY
+    ADD PRFA_COUNTY VARCHAR(30) NULL;
 GO
 
 -- Confirm the column was added
 SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
 FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'raw'
-  AND TABLE_NAME   = 'CMC_NWNW_NETWORK'
+WHERE TABLE_SCHEMA = 'raw' AND TABLE_NAME = 'CMC_PRFA_FACILITY'
 ORDER BY ORDINAL_POSITION;
 GO
 
 -- =============================================================================
--- STEP 3: Insert 5 new network records that include the new column
---
--- These records represent CalOptima expanding its network footprint into
--- new geographic service areas in Orange County.
+-- STEP 3: Insert 5 new facility records that include the new column
+--         PRFA_IDs 9001-9005 are well above the ~300 seeded rows.
+--         PRPR_IDs 1-5 are the first providers seeded by the initial load.
 -- =============================================================================
 
-INSERT INTO raw.CMC_NWNW_NETWORK
-    (NWNW_ID, NWNW_NAME,                        NWNW_ABBR,   NWNW_STS, NWNW_EFF_DT,  NWNW_TERM_DT, NWNW_TYPE, NWNW_REGION,   SYS_LAST_UPD_DTM)
+INSERT INTO raw.CMC_PRFA_FACILITY
+    (PRFA_ID, PRPR_ID, PRFA_FAC_TYPE, PRFA_BED_CNT, PRFA_LICENSE_NO, PRFA_ACCRED_TYPE, PRFA_COUNTY)
 VALUES
-    (101, 'CalOptima North OC Network',          'HMO-NOC',   'AC',     '2026-01-01', NULL,         'HMO',     'North OC',    GETDATE()),
-    (102, 'CalOptima South OC Network',          'HMO-SOC',   'AC',     '2026-01-01', NULL,         'HMO',     'South OC',    GETDATE()),
-    (103, 'CalOptima Coastal Network',           'PPO-CST',   'AC',     '2026-04-01', NULL,         'PPO',     'Coastal OC',  GETDATE()),
-    (104, 'CalOptima East OC DSNP Network',      'DSNP-EOC',  'AC',     '2026-04-01', NULL,         'DSNP',    'East OC',     GETDATE()),
-    (105, 'CalOptima Central Access Network',    'EPO-CTR',   'AC',     '2026-07-01', NULL,         'EPO',     'Central OC',  GETDATE());
+    (9001, 1, 'HOSPITAL',  250, 'LIC-OC-9001', 'JCI',  'Orange'),
+    (9002, 2, 'HOSPITAL',  180, 'LIC-OC-9002', 'JCI',  'Orange'),
+    (9003, 3, 'CLINIC',     40, 'LIC-OC-9003', 'AAAHC','Anaheim'),
+    (9004, 4, 'SKILLED_NF', 99, 'LIC-OC-9004', 'CARF', 'Irvine'),
+    (9005, 5, 'URGENT',     20, 'LIC-OC-9005', NULL,   'Santa Ana');
 GO
 
 -- =============================================================================
 -- STEP 4: Confirm final state
 -- =============================================================================
 
--- Total rows (should now be original ~20 + 5 = ~25)
-SELECT COUNT(*) AS total_rows FROM raw.CMC_NWNW_NETWORK;
+SELECT COUNT(*) AS total_rows FROM raw.CMC_PRFA_FACILITY;
 
--- New records with the NWNW_REGION column populated
-SELECT NWNW_ID, NWNW_NAME, NWNW_ABBR, NWNW_STS, NWNW_TYPE, NWNW_REGION, NWNW_EFF_DT
-FROM raw.CMC_NWNW_NETWORK
-WHERE NWNW_ID >= 101
-ORDER BY NWNW_ID;
+-- New records with PRFA_COUNTY populated
+SELECT PRFA_ID, PRPR_ID, PRFA_FAC_TYPE, PRFA_BED_CNT, PRFA_ACCRED_TYPE, PRFA_COUNTY
+FROM raw.CMC_PRFA_FACILITY
+WHERE PRFA_ID >= 9001
+ORDER BY PRFA_ID;
 
--- Before/after split — original rows have NULL for NWNW_REGION
+-- Before/after split — original rows have NULL for PRFA_COUNTY
 SELECT
-    CASE WHEN NWNW_REGION IS NULL THEN 'Pre-change (no region)' ELSE 'Post-change (' + NWNW_REGION + ')' END AS row_origin,
+    CASE WHEN PRFA_COUNTY IS NULL THEN 'Pre-change (no county)' ELSE 'Post-change (' + PRFA_COUNTY + ')' END AS row_origin,
     COUNT(*) AS row_count
-FROM raw.CMC_NWNW_NETWORK
-GROUP BY CASE WHEN NWNW_REGION IS NULL THEN 'Pre-change (no region)' ELSE 'Post-change (' + NWNW_REGION + ')' END
+FROM raw.CMC_PRFA_FACILITY
+GROUP BY CASE WHEN PRFA_COUNTY IS NULL THEN 'Pre-change (no county)' ELSE 'Post-change (' + PRFA_COUNTY + ')' END
 ORDER BY 1;
 GO
-
--- =============================================================================
--- CLEANUP / ROLLBACK (run if you want to reset the demo)
--- =============================================================================
-
--- To undo: remove the new records and drop the column
--- DELETE FROM raw.CMC_NWNW_NETWORK WHERE NWNW_ID >= 101;
--- ALTER TABLE raw.CMC_NWNW_NETWORK DROP COLUMN NWNW_REGION;

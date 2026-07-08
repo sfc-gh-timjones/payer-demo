@@ -28,7 +28,9 @@ CREATE STAGE, CREATE FILE FORMAT
 ************************************************************************/
 
 -- Internal stage — no STORAGE_INTEGRATION or URL required.
+-- DIRECTORY enables the file index visible in Snowsight "Stage Files" tab.
 CREATE OR REPLACE STAGE MY_STAGE
+  DIRECTORY = (ENABLE = TRUE)
   COMMENT = 'Internal stage for flat file ingestion demo';
 
 -- Upload files manually:

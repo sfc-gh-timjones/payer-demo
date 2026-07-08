@@ -62,19 +62,47 @@ GO
 
 -- =============================================================================
 -- STEP 3: Insert 5 new facility records
---         PRFA_FAC_TYPE values kept <= 10 chars (original column width)
---         to show the wider column isn't needed to avoid breakage.
 --         PRFA_IDs 9001-9005 are well above the ~300 seeded rows.
+--         PRPR_IDs pulled from the actual table to avoid FK violations
+--         (hardcoding 1-5 fails if the re-seed doesn't start at 1).
+--         PRFA_FAC_TYPE values kept <= 10 chars (original column width).
 -- =============================================================================
 
 INSERT INTO raw.CMC_PRFA_FACILITY
     (PRFA_ID, PRPR_ID, PRFA_FAC_TYPE, PRFA_BED_CNT, PRFA_LICENSE_NO, PRFA_ACCRED_TYPE, PRFA_COUNTY)
-VALUES
-    (9001, 1, 'HOSPITAL',  250, 'LIC-OC-9001', 'JCI',  'Orange'),
-    (9002, 2, 'HOSPITAL',  180, 'LIC-OC-9002', 'JCI',  'Orange'),
-    (9003, 3, 'CLINIC',     40, 'LIC-OC-9003', 'AAAHC','Anaheim'),
-    (9004, 4, 'SKILLED_NF', 99, 'LIC-OC-9004', 'CARF', 'Irvine'),
-    (9005, 5, 'URGENT',     20, 'LIC-OC-9005', NULL,   'Santa Ana');
+SELECT
+    9000 + ROW_NUMBER() OVER (ORDER BY PRPR_ID) AS PRFA_ID,
+    PRPR_ID,
+    CASE ROW_NUMBER() OVER (ORDER BY PRPR_ID)
+        WHEN 1 THEN 'HOSPITAL'
+        WHEN 2 THEN 'HOSPITAL'
+        WHEN 3 THEN 'CLINIC'
+        WHEN 4 THEN 'SKILLED_NF'
+        ELSE        'URGENT'
+    END AS PRFA_FAC_TYPE,
+    CASE ROW_NUMBER() OVER (ORDER BY PRPR_ID)
+        WHEN 1 THEN 250
+        WHEN 2 THEN 180
+        WHEN 3 THEN  40
+        WHEN 4 THEN  99
+        ELSE          20
+    END AS PRFA_BED_CNT,
+    'LIC-OC-900' + CAST(ROW_NUMBER() OVER (ORDER BY PRPR_ID) AS VARCHAR(1)) AS PRFA_LICENSE_NO,
+    CASE ROW_NUMBER() OVER (ORDER BY PRPR_ID)
+        WHEN 1 THEN 'JCI'
+        WHEN 2 THEN 'JCI'
+        WHEN 3 THEN 'AAAHC'
+        WHEN 4 THEN 'CARF'
+        ELSE        NULL
+    END AS PRFA_ACCRED_TYPE,
+    CASE ROW_NUMBER() OVER (ORDER BY PRPR_ID)
+        WHEN 1 THEN 'Orange'
+        WHEN 2 THEN 'Orange'
+        WHEN 3 THEN 'Anaheim'
+        WHEN 4 THEN 'Irvine'
+        ELSE        'Santa Ana'
+    END AS PRFA_COUNTY
+FROM (SELECT TOP 5 PRPR_ID FROM raw.CMC_PRPR_PROV ORDER BY PRPR_ID) t;
 GO
 
 -- =============================================================================

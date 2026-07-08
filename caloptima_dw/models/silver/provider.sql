@@ -131,6 +131,15 @@ new_version_rows AS (
     FROM providers_to_version
 )
 
+-- This UNION returns only the rows that need to change this run — not all providers.
+-- Unchanged providers already have correct rows in Silver and are not touched.
+-- dbt issues a MERGE against the Silver table using unique_key=PROVIDER_SK:
+--   rows_to_close   → PROVIDER_SK matches an existing row → MERGE UPDATE
+--                     (sets EFFECTIVE_TO = new timestamp, IS_CURRENT = FALSE)
+--   new_version_rows → PROVIDER_SK is brand new → MERGE INSERT
+--                     (opens a new IS_CURRENT = TRUE row)
+-- Each changed provider produces exactly 2 rows: one UPDATE + one INSERT.
+-- Brand new providers (no prior Silver row) produce only 1 row: just the INSERT.
 SELECT * FROM rows_to_close
 UNION ALL
 SELECT * FROM new_version_rows

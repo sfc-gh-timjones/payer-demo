@@ -13,7 +13,7 @@
 
 {% if is_incremental() %}
 
-WITH bronze_providers AS (
+WITH bronze_current_providers AS (
     SELECT
         p.PRPR_ID,
         p.PRPR_NPI,
@@ -47,7 +47,7 @@ WITH bronze_providers AS (
 -- Providers that are new or have a more recent Bronze timestamp than the current Silver version
 providers_to_version AS (
     SELECT bp.*
-    FROM bronze_providers bp
+    FROM bronze_current_providers bp
     LEFT JOIN {{ this }} t
         ON  bp.PRPR_ID = t.PRPR_ID
         AND t.IS_CURRENT = TRUE

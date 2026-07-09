@@ -38,7 +38,7 @@ jobs:
           authenticator = "programmatic_access_token"
           token = "${{ secrets.SNOWFLAKE_PAT }}"
           role = "ACCOUNTADMIN"
-          warehouse = "WH_XS"
+          warehouse = "WH_SMALL"
           EOF
 
       # Each step targets a different environment via --target.

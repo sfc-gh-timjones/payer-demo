@@ -38,6 +38,7 @@ jobs:
           role = "ACCOUNTADMIN"
           warehouse = "WH_SMALL"
           EOF
+          chmod 0600 ~/.snowflake/config.toml
 
       # Each step targets a different environment via --target.
       # The dbt project object lives at ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW.

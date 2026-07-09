@@ -19,8 +19,6 @@ jobs:
 
       - name: Install Snowflake CLI
         uses: Snowflake-Labs/snowflake-cli-action@v2
-        with:
-          cli-version: latest
 
       # Write a config.toml for the CI connection using GitHub Secrets.
       # Secrets required (Settings → Secrets → Actions):

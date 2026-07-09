@@ -26,7 +26,8 @@ jobs:
       # Secrets required (Settings → Secrets → Actions):
       #   SNOWFLAKE_ACCOUNT  = sfsenorthamerica-tim_jones_demo
       #   SNOWFLAKE_USER     = ADMIN
-      #   SNOWFLAKE_PASSWORD = <ADMIN user password>
+      #   SNOWFLAKE_PAT      = <Programmatic Access Token generated in Snowflake UI>
+      #                        (Admin → Security → Programmatic Access Tokens → Generate)
       - name: Configure Snowflake connection
         run: |
           mkdir -p ~/.snowflake
@@ -34,7 +35,8 @@ jobs:
           [connections.ci]
           account = "${{ secrets.SNOWFLAKE_ACCOUNT }}"
           user = "${{ secrets.SNOWFLAKE_USER }}"
-          password = "${{ secrets.SNOWFLAKE_PASSWORD }}"
+          authenticator = "programmatic_access_token"
+          token = "${{ secrets.SNOWFLAKE_PAT }}"
           role = "ACCOUNTADMIN"
           warehouse = "WH_XS"
           EOF

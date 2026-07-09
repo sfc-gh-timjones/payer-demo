@@ -8,7 +8,8 @@
 -- GITHUB SECRETS REQUIRED (repo → Settings → Secrets and variables → Actions):
 --   SNOWFLAKE_ACCOUNT  = sfsenorthamerica-tim_jones_demo
 --   SNOWFLAKE_USER     = ADMIN
---   SNOWFLAKE_PASSWORD = <ADMIN user password>
+--   SNOWFLAKE_PAT      = <Programmatic Access Token>
+--                        Generate in Snowflake UI: Admin → Security → Programmatic Access Tokens
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;

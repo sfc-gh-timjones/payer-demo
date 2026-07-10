@@ -64,10 +64,15 @@ SELECT
     ROWS_INSERTED,
     ROWS_UPDATED
 FROM TABLE(INFORMATION_SCHEMA.QUERY_HISTORY_BY_USER(USER_NAME => 'ADMIN'))
-WHERE QUERY_TEXT ILIKE '%MERGE%INTO%MEMBER%'
+WHERE QUERY_TEXT ILIKE '%MERGE%INTO%FACETS_DEV%SILVER%MEMBER%'
   AND START_TIME >= DATEADD('hour', -4, CURRENT_TIMESTAMP())
 ORDER BY START_TIME DESC
 LIMIT 10;
+
+-- NOTE: Filter uses FACETS_DEV (not just MEMBER) because dev and qa now run in
+-- parallel in CI — both generate MERGE INTO MEMBER queries at the same time.
+-- dbt fully qualifies the table name so FACETS_DEV.SILVER.MEMBER vs
+-- FACETS_QA.SILVER.MEMBER appears in the query text, making them distinguishable.
 
 -- Copy the QUERY_ID of the bad run from the results above
 -- and paste it into the BEFORE (STATEMENT => ...) clauses below

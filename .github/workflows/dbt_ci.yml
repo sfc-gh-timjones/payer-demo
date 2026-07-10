@@ -44,6 +44,14 @@ jobs:
       # The dbt project object lives at ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW.
       # Connection flags MUST come before the project name.
 
+      # Deploy first so the latest code changes from this PR are in the Snowflake
+      # project object before any execute steps run against it.
+      - name: Deploy dbt project to Snowflake
+        run: |
+          snow dbt deploy -c ci \
+            --database ANALYTICS_ADMIN --schema PROJECTS \
+            caloptima_dw
+
       - name: dbt run — dev (FACETS_DEV)
         run: |
           snow dbt execute -c ci \

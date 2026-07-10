@@ -103,7 +103,7 @@ ALTER TABLE FACETS_DEV.SILVER.MEMBER
 -- =============================================================================
 
 SELECT COUNT(*) AS restored_row_count FROM FACETS_DEV.SILVER.MEMBER;
--- Should now match the RESTORE count from Step 4
+-- It will now match the RESTORE count from Step 4
 
 
 -- =============================================================================

@@ -25,8 +25,8 @@
 --
 -- DEMO STORY:
 --   1. A bad dbt change merges via PR → CI/CD deploys it → Silver data is wrong
---   2. Use Time Travel to identify the bad MERGE statement's query ID
---   3. Clone MEMBER to a restore point BEFORE that bad run
+--   2. Trigger full refresh — bad filter wipes Active members
+--   3. Capture LAST_QUERY_ID(), clone MEMBER to a restore point BEFORE that run
 --   4. Verify the restored data looks correct
 --   5. Swap atomically — production table is restored instantly
 --   6. Clean up the temp table
@@ -43,63 +43,49 @@ USE DATABASE FACETS_DEV;
 USE SCHEMA SILVER;
 
 -- =============================================================================
--- STEP 1: Show current (bad) state after the bad deployment
+-- STEP 1: Confirm current state is still good (bad code deployed but not yet run)
+--         CI/CD ran incrementally — 0 new Bronze rows → existing Silver rows untouched
 -- =============================================================================
 
 SELECT COUNT(*) AS current_row_count FROM FACETS_DEV.SILVER.MEMBER;
-
--- Expected: row count is wrong (too low, or data is missing/incorrect)
-
-
--- =============================================================================
--- STEP 2: Find the query ID of the bad dbt MERGE run
---         Look for the MERGE into MEMBER from the last CI/CD execution
--- =============================================================================
-
-SELECT
-    QUERY_ID,
-    LEFT(QUERY_TEXT, 120)   AS query_preview,
-    START_TIME,
-    TOTAL_ELAPSED_TIME / 1000 AS elapsed_seconds,
-    ROWS_INSERTED,
-    ROWS_UPDATED
-FROM TABLE(INFORMATION_SCHEMA.QUERY_HISTORY_BY_USER(USER_NAME => 'ADMIN'))
-WHERE QUERY_TEXT ILIKE '%MERGE%INTO%MEMBER%'
-  AND START_TIME >= DATEADD('hour', -4, CURRENT_TIMESTAMP())
-ORDER BY START_TIME DESC
-LIMIT 10;
-
--- Copy the QUERY_ID of the bad run from the results above
--- and paste it into the BEFORE (STATEMENT => ...) clauses below
+-- Expected: full count still intact (incremental run did nothing to existing rows)
 
 
 -- =============================================================================
--- STEP 3: Clone to a NEW table first — non-destructive, zero-copy
---         Replace the query ID placeholder with the actual ID from Step 2
+-- STEP 2: Trigger the full refresh — this is when the bad filter does damage
+--         Narrate: "full refreshes happen in prod — someone adds a column,
+--         a DBA triggers maintenance, CI runs with --full-refresh flag, etc."
+-- =============================================================================
+
+EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
+    ARGS = 'run --select member --full-refresh --target dev';
+
+-- Capture query ID IMMEDIATELY — before running anything else
+SET bad_run_id = LAST_QUERY_ID();
+SELECT $bad_run_id AS bad_run_query_id;   -- show it for transparency
+
+-- Now re-check — row count should have collapsed (only MEME_STS = 'IN' rows survive)
+SELECT COUNT(*) AS bad_row_count FROM FACETS_DEV.SILVER.MEMBER;
+
+
+-- =============================================================================
+-- STEP 3: Clone to a restore point — three ways to target it (pick one)
+--         Full refresh = DROP + CTAS inside dbt, so $bad_run_id is the outer
+--         EXECUTE DBT PROJECT statement — Snowflake resolves the table state
+--         to just before that wrapper statement started.
 -- =============================================================================
 
 CREATE TABLE FACETS_DEV.SILVER.MEMBER_RESTORE
     CLONE FACETS_DEV.SILVER.MEMBER
-    BEFORE (STATEMENT => '01b3f4e2-0001-a2b3-0000-000100012345');  -- ← replace
+    BEFORE (STATEMENT => $bad_run_id);                               -- ← most precise: uses captured query ID
+    -- BEFORE (TIMESTAMP => DATEADD(minute, -1, CURRENT_TIMESTAMP()));  -- ← by time: 1 min ago
+    -- BEFORE (OFFSET => -60);                                          -- ← by offset: 60 seconds back
 
 
 -- =============================================================================
 -- STEP 4: Verify the restored data looks correct BEFORE swapping
--- =============================================================================
 
--- Row count — should match expected pre-deployment count
 SELECT COUNT(*) AS restored_row_count FROM FACETS_DEV.SILVER.MEMBER_RESTORE;
-
--- Spot-check: active members with PCP assignments present
-SELECT COUNT(*) AS active_with_pcp
-FROM FACETS_DEV.SILVER.MEMBER_RESTORE
-WHERE MEMBER_STATUS = 'Active'
-  AND ACTIVE_PCP_PRPR_ID IS NOT NULL;
-
--- Side-by-side comparison
-SELECT 'CURRENT (bad)'   AS version, COUNT(*) AS rows FROM FACETS_DEV.SILVER.MEMBER
-UNION ALL
-SELECT 'RESTORE (good)'  AS version, COUNT(*) AS rows FROM FACETS_DEV.SILVER.MEMBER_RESTORE;
 
 
 -- =============================================================================
@@ -117,7 +103,7 @@ ALTER TABLE FACETS_DEV.SILVER.MEMBER
 -- =============================================================================
 
 SELECT COUNT(*) AS restored_row_count FROM FACETS_DEV.SILVER.MEMBER;
--- Should now match the RESTORE count from Step 4
+-- It will now match the RESTORE count from Step 4
 
 
 -- =============================================================================

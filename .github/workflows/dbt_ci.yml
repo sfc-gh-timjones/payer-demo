@@ -1,32 +1,26 @@
 name: dbt CI/CD — caloptima_dw
 
-# PR to main   → deploy + dev + qa (validation gate)
-# Merge to main → prod only (promotion)
+# Triggers only on PRs from dev → main that touch caloptima_dw files.
+# All other files (Openflow scripts, demo SQL, notebooks) never trigger this.
 on:
   pull_request:
     branches: [main]
     paths:
       - 'caloptima_dw/**'
-  push:
-    branches: [main]
-    paths:
-      - 'caloptima_dw/**'
-
-# Shared config step is extracted via env vars; actual connection written per job.
-# Secrets required (Settings → Secrets → Actions):
-#   SNOWFLAKE_ACCOUNT  = sfsenorthamerica-tim_jones_demo
-#   SNOWFLAKE_USER     = ADMIN
-#   SNOWFLAKE_PAT      = <Programmatic Access Token>
 
 jobs:
-  # ── Step 1: deploy (PR only) ──────────────────────────────────────────────
-  deploy:
-    name: Deploy dbt project to Snowflake
-    if: github.event_name == 'pull_request'
+  dbt-pipeline:
+    name: dbt run — dev → qa → prod
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
       - uses: Snowflake-Labs/snowflake-cli-action@v2
+
+      # Secrets required (Settings → Secrets → Actions):
+      #   SNOWFLAKE_ACCOUNT  = sfsenorthamerica-tim_jones_demo
+      #   SNOWFLAKE_USER     = ADMIN
+      #   SNOWFLAKE_PAT      = <Programmatic Access Token>
       - name: Configure Snowflake connection
         run: |
           mkdir -p ~/.snowflake
@@ -40,70 +34,26 @@ jobs:
           warehouse = "WH_SMALL"
           EOF
           chmod 0600 ~/.snowflake/config.toml
-      - name: Deploy
+
+      - name: Deploy dbt project to Snowflake
         run: |
           cd caloptima_dw && snow dbt deploy -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
             caloptima_dw
 
-  # ── Step 2: dev + qa in parallel (PR only, after deploy) ─────────────────
-  validate:
-    name: dbt run — ${{ matrix.target }}
-    if: github.event_name == 'pull_request'
-    needs: deploy
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target: [dev, qa]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Snowflake-Labs/snowflake-cli-action@v2
-      - name: Configure Snowflake connection
-        run: |
-          mkdir -p ~/.snowflake
-          cat > ~/.snowflake/config.toml << EOF
-          [connections.ci]
-          account = "${{ secrets.SNOWFLAKE_ACCOUNT }}"
-          user = "${{ secrets.SNOWFLAKE_USER }}"
-          authenticator = "programmatic_access_token"
-          token = "${{ secrets.SNOWFLAKE_PAT }}"
-          role = "ACCOUNTADMIN"
-          warehouse = "WH_SMALL"
-          EOF
-          chmod 0600 ~/.snowflake/config.toml
-      - name: dbt run — ${{ matrix.target }}
+      - name: dbt run — dev (FACETS_DEV)
         run: |
           snow dbt execute -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
-            CALOPTIMA_DW run --target ${{ matrix.target }}
+            CALOPTIMA_DW run --target dev
 
-  # ── Step 3: prod on merge to main only ───────────────────────────────────
-  promote-prod:
-    name: dbt run — prod (post-merge)
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Snowflake-Labs/snowflake-cli-action@v2
-      - name: Configure Snowflake connection
+      - name: dbt run — qa (FACETS_QA)
         run: |
-          mkdir -p ~/.snowflake
-          cat > ~/.snowflake/config.toml << EOF
-          [connections.ci]
-          account = "${{ secrets.SNOWFLAKE_ACCOUNT }}"
-          user = "${{ secrets.SNOWFLAKE_USER }}"
-          authenticator = "programmatic_access_token"
-          token = "${{ secrets.SNOWFLAKE_PAT }}"
-          role = "ACCOUNTADMIN"
-          warehouse = "WH_SMALL"
-          EOF
-          chmod 0600 ~/.snowflake/config.toml
-      - name: Deploy
-        run: |
-          cd caloptima_dw && snow dbt deploy -c ci \
+          snow dbt execute -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
-            caloptima_dw
-      - name: dbt run — prod
+            CALOPTIMA_DW run --target qa
+
+      - name: dbt run — prod (FACETS_PROD)
         run: |
           snow dbt execute -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \

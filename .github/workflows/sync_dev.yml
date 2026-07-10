@@ -10,6 +10,8 @@ jobs:
   sync:
     name: Merge main into dev
     runs-on: ubuntu-latest
+    permissions:
+      contents: write       # required to push back to dev
     steps:
       - uses: actions/checkout@v4
         with:

@@ -85,19 +85,7 @@ CREATE TABLE FACETS_DEV.SILVER.MEMBER_RESTORE
 -- =============================================================================
 -- STEP 4: Verify the restored data looks correct BEFORE swapping
 
--- Row count — should match expected pre-deployment count
 SELECT COUNT(*) AS restored_row_count FROM FACETS_DEV.SILVER.MEMBER_RESTORE;
-
--- Spot-check: active members with PCP assignments present
-SELECT COUNT(*) AS active_with_pcp
-FROM FACETS_DEV.SILVER.MEMBER_RESTORE
-WHERE MEMBER_STATUS = 'Active'
-  AND ACTIVE_PCP_PRPR_ID IS NOT NULL;
-
--- Side-by-side comparison
-SELECT 'CURRENT (bad)'   AS version, COUNT(*) AS rows FROM FACETS_DEV.SILVER.MEMBER
-UNION ALL
-SELECT 'RESTORE (good)'  AS version, COUNT(*) AS rows FROM FACETS_DEV.SILVER.MEMBER_RESTORE;
 
 
 -- =============================================================================

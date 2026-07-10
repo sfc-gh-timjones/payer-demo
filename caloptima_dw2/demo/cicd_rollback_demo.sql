@@ -24,13 +24,11 @@
 --          without reloading any Bronze data or re-running the pipeline.
 --
 -- DEMO STORY:
---   1. A bad dbt change merges via PR → CI/CD deploys it → Silver data is wrong
---   2. Trigger full refresh — bad filter wipes Active members
---   3. Capture LAST_QUERY_ID(), clone MEMBER to a restore point BEFORE that run
---   4. Verify the restored data looks correct
---   5. Swap atomically — production table is restored instantly
---   6. Clean up the temp table
---   7. Separately: git revert the bad code commit and let CI/CD redeploy cleanly
+--   1. Bad code merged via PR → CI/CD deployed it
+--   2. Full refresh triggered → bad filter wiped Active members
+--   3. Discover the damage, use Time Travel to restore retrospectively
+--   4. Swap atomically — table restored with no downtime
+--   5. Separately: git revert the code, CI/CD redeploys clean
 --
 -- KEY TALKING POINT:
 --   Snowflake separates data recovery from code recovery.
@@ -43,18 +41,18 @@ USE DATABASE FACETS_DEV;
 USE SCHEMA SILVER;
 
 -- =============================================================================
--- STEP 1: Confirm current state is still good (bad code deployed but not yet run)
---         CI/CD ran incrementally — 0 new Bronze rows → existing Silver rows untouched
+-- STEP 1: Confirm the damage — bad code deployed + full refresh wipes Active members
 -- =============================================================================
 
 SELECT COUNT(*) AS current_row_count FROM FACETS_DEV.SILVER.MEMBER;
--- Expected: full count still intact (incremental run did nothing to existing rows)
+-- Expected: row count is too low (only MEME_STS = 'IN' rows survived the full refresh)
 
 
 -- =============================================================================
 -- STEP 2: Trigger the full refresh — this is when the bad filter does damage
 --         Narrate: "full refreshes happen in prod — someone adds a column,
 --         a DBA triggers maintenance, CI runs with --full-refresh flag, etc."
+--         (Skip this step if damage is already present from a prior run)
 -- =============================================================================
 
 EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
@@ -64,28 +62,29 @@ EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
 SET bad_run_id = LAST_QUERY_ID();
 SELECT $bad_run_id AS bad_run_query_id;   -- show it for transparency
 
--- Now re-check — row count should have collapsed (only MEME_STS = 'IN' rows survive)
+-- Confirm damage
 SELECT COUNT(*) AS bad_row_count FROM FACETS_DEV.SILVER.MEMBER;
 
 
 -- =============================================================================
--- STEP 3: Clone to a restore point — three ways to target it (pick one)
---         Full refresh = DROP + CTAS inside dbt, so $bad_run_id is the outer
---         EXECUTE DBT PROJECT statement — Snowflake resolves the table state
---         to just before that wrapper statement started.
+-- STEP 3: Clone to a restore point using Time Travel (three options — pick one)
+--         Silver tables are permanent (transient: false in dbt_project.yml)
+--         so Time Travel history is available.
 -- =============================================================================
 
 CREATE TABLE FACETS_DEV.SILVER.MEMBER_RESTORE
     CLONE FACETS_DEV.SILVER.MEMBER
     BEFORE (STATEMENT => $bad_run_id);                               -- ← most precise: uses captured query ID
-    -- BEFORE (TIMESTAMP => DATEADD(minute, -1, CURRENT_TIMESTAMP()));  -- ← by time: 1 min ago
-    -- BEFORE (OFFSET => -60);                                          -- ← by offset: 60 seconds back
+    -- BEFORE (TIMESTAMP => DATEADD(minute, -5, CURRENT_TIMESTAMP()));  -- ← by time: 5 min ago
+    -- BEFORE (OFFSET => -300);                                         -- ← by offset: 300 seconds back
 
 
 -- =============================================================================
--- STEP 4: Verify the restored data looks correct BEFORE swapping
+-- STEP 4: Verify the restored data looks correct
+-- =============================================================================
 
 SELECT COUNT(*) AS restored_row_count FROM FACETS_DEV.SILVER.MEMBER_RESTORE;
+-- Should match the expected pre-bad-run count
 
 
 -- =============================================================================
@@ -103,7 +102,7 @@ ALTER TABLE FACETS_DEV.SILVER.MEMBER
 -- =============================================================================
 
 SELECT COUNT(*) AS restored_row_count FROM FACETS_DEV.SILVER.MEMBER;
--- It will now match the RESTORE count from Step 4
+-- Should now match the RESTORE count from Step 4
 
 
 -- =============================================================================

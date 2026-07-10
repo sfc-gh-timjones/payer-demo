@@ -12,21 +12,6 @@
 --                            _DT = date, _DTM = datetime, _AMT = amount,
 --                            _FLAG / _IND = boolean indicator
 --
--- TABLE CHOSEN: CMC_PRTP_PROV_TYPE
---   - Standalone reference/lookup table — ZERO FK dependencies in or out
---   - 15 pre-seeded rows (IDs 1-15), demo rows use IDs 9001-9005
---   - No parent or child tables; inserts and deletes are always clean
---   - DELETE WHERE PRTP_ID >= 9001 will never touch the 15 seeded rows
---
--- WHAT THIS DEMONSTRATES:
---   1. TYPE WIDENING — ALTER COLUMN PRTP_DESC VARCHAR(100) → VARCHAR(200)
---      Both map to TEXT in Snowflake, so the pipeline never breaks.
---   2. ADD COLUMN — PRTP_EFFECTIVE_DT DATE added mid-stream
---   3. OPENFLOW DETECTION — schema change captured via CT DDL FlowFile;
---      Bronze table in Snowflake gains the column via schema evolution
---   4. NEW RECORDS WITH NEW COLUMN — 5 inserts populate PRTP_EFFECTIVE_DT,
---      showing the before/after NULL split in Silver
---
 -- RUN THIS IN: Azure SQL Server (SSMS or Azure Data Studio)
 -- DATABASE:    openflow
 -- =============================================================================
@@ -42,31 +27,21 @@ SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = 'raw' AND TABLE_NAME = 'CMC_PRTP_PROV_TYPE'
 ORDER BY ORDINAL_POSITION;
-
-SELECT * FROM raw.CMC_PRTP_PROV_TYPE ORDER BY PRTP_ID;
 GO
 
 -- =============================================================================
 -- STEP 2: Schema changes
---   a) Widen PRTP_DESC from VARCHAR(100) to VARCHAR(200)
---      Source type change — Snowflake maps both to TEXT so no downstream
---      breakage. Demonstrates the pipeline handles type widening cleanly.
---   b) Add PRTP_EFFECTIVE_DT DATE — new column picked up via schema evolution
 -- =============================================================================
 
+-- Change Data Type
 ALTER TABLE raw.CMC_PRTP_PROV_TYPE
     ALTER COLUMN PRTP_DESC VARCHAR(200);  -- PRTP_DESC: provider type description (was 100 chars)
 GO
 
+
+-- Add a column
 ALTER TABLE raw.CMC_PRTP_PROV_TYPE
     ADD PRTP_EFFECTIVE_DT DATE NULL;      -- PRTP_EFFECTIVE_DT: date this provider type became active in CalOptima's system
-GO
-
--- Confirm both changes applied
-SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'raw' AND TABLE_NAME = 'CMC_PRTP_PROV_TYPE'
-ORDER BY ORDINAL_POSITION;
 GO
 
 -- =============================================================================
@@ -89,25 +64,4 @@ GO
 -- STEP 4: Confirm final state
 -- =============================================================================
 
-SELECT COUNT(*) AS total_rows FROM raw.CMC_PRTP_PROV_TYPE;  -- expect 20
-
--- New records with PRTP_EFFECTIVE_DT populated
-SELECT PRTP_ID, PRTP_CODE, PRTP_DESC, PRTP_CATEGORY, PRTP_EFFECTIVE_DT
-FROM raw.CMC_PRTP_PROV_TYPE
-WHERE PRTP_ID >= 9001
-ORDER BY PRTP_ID;
-
--- Before/after split — original 15 rows have NULL for PRTP_EFFECTIVE_DT
-SELECT
-    CASE WHEN PRTP_EFFECTIVE_DT IS NULL
-         THEN 'Pre-change (no effective date)'
-         ELSE 'Post-change (' + CAST(PRTP_EFFECTIVE_DT AS VARCHAR) + ')'
-    END AS row_origin,
-    COUNT(*) AS row_count
-FROM raw.CMC_PRTP_PROV_TYPE
-GROUP BY CASE WHEN PRTP_EFFECTIVE_DT IS NULL
-              THEN 'Pre-change (no effective date)'
-              ELSE 'Post-change (' + CAST(PRTP_EFFECTIVE_DT AS VARCHAR) + ')'
-         END
-ORDER BY 1;
-GO
+SELECT * FROM raw.CMC_PRTP_PROV_TYPE;  -- expect 20

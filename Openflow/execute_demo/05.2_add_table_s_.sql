@@ -54,3 +54,13 @@
 "openflow"."raw"."CMC_PRFA_FACILITY",
 "openflow"."raw"."CMC_PRTP_PROV_TYPE"
 */
+
+
+/* TO ADD: 
+
+,"openflow"."raw"."CMC_PRTP_PROV_TYPE"
+
+CMC — ClaimMaster Claims — the system prefix used on all Facets tables in this module
+PRTP — PRovider TyPe — the 4-letter entity code for this specific table
+
+*/

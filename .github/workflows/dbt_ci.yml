@@ -50,6 +50,7 @@ jobs:
         run: |
           snow dbt deploy -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
+            --project-path caloptima_dw \
             caloptima_dw
 
       - name: dbt run — dev (FACETS_DEV)

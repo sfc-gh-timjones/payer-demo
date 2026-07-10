@@ -39,6 +39,7 @@ FROM {{ ref('int_meme_with_subscriber') }} m
 LEFT JOIN {{ ref('int_meme_pcp_current') }} pcp ON m.MEME_ID = pcp.MEME_ID
 LEFT JOIN {{ ref('int_meme_medicaid') }}    mcd ON m.MEME_ID = mcd.MEME_ID
 WHERE m.IS_DUPLICATE = FALSE
+AND m.MEME_STS = 'IN'     -- ← BAD LINE: only keeps Inactive members, wipes Active ones
 {% if is_incremental() %}
     AND m.updated_at > (
         SELECT COALESCE(MAX(BRONZE_UPDATED_AT), '1900-01-01'::TIMESTAMP_NTZ)

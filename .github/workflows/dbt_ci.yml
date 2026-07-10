@@ -48,9 +48,8 @@ jobs:
       # project object before any execute steps run against it.
       - name: Deploy dbt project to Snowflake
         run: |
-          snow dbt deploy -c ci \
+          cd caloptima_dw && snow dbt deploy -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
-            --project-path caloptima_dw \
             caloptima_dw
 
       - name: dbt run — dev (FACETS_DEV)

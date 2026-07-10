@@ -9,6 +9,10 @@ sources:
       warn_after: {count: 60, period: minute}
       error_after: {count: 120, period: minute}
     tables:
+      # ── Reference / Lookup ────────────────────────────────────────────────
+      - name: CMC_PROF_OFF_HRS
+        description: "Provider office hours. Day-of-week open/close times per provider location. ~3,963 rows. Never updated by the incremental load proc — set at credentialing, static reference data."
+
       # ── Networks & Agreements ──────────────────────────────────────────────
       - name: CMC_AGAG_AGREEMENT
         description: "Provider contracts and agreements. AGAG_MCTR_TYPE: FFS=Fee for Service, CAP=Capitation, PER_DIEM=Per Diem."

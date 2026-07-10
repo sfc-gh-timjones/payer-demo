@@ -1,0 +1,30 @@
+{{ config(
+    materialized='incremental',
+    unique_key='PROF_ID',
+    incremental_strategy='merge'
+) }}
+
+SELECT
+    PROF_ID,
+    PRPR_ID,
+
+    PROF_DAY_OF_WK,              -- ✅ CORRECT — comment out for bad code demo
+    -- 'ERR' AS PROF_DAY_OF_WK,  -- 🔴 BAD CODE — uncomment + comment out correct line above
+
+    PROF_OPEN_TM,
+    PROF_CLOSE_TM,
+    _SNOWFLAKE_UPDATED_AT        AS BRONZE_UPDATED_AT,
+    CURRENT_TIMESTAMP()          AS SILVER_LOADED_AT
+
+FROM {{ ref('stg_prof_off_hrs') }}
+
+{% if is_incremental() %}
+WHERE
+    -- ✅ CORRECT — comment out for bad code demo:
+    _SNOWFLAKE_UPDATED_AT > (
+        SELECT COALESCE(MAX(BRONZE_UPDATED_AT), '1900-01-01'::TIMESTAMP_NTZ)
+        FROM {{ this }}
+    )
+    -- 🔴 BAD CODE — uncomment + comment out correct filter above:
+    -- PROF_ID % 2 = 0
+{% endif %}

@@ -26,7 +26,7 @@
 -- DEMO STORY:
 --   1. A bad dbt change merges via PR → CI/CD deploys it → Silver data is wrong
 --   2. Trigger full refresh — bad filter wipes Active members
---   3. Clone MEMBER to a restore point using timestamp (no query ID needed)
+--   3. Capture LAST_QUERY_ID(), clone MEMBER to a restore point BEFORE that run
 --   4. Verify the restored data looks correct
 --   5. Swap atomically — production table is restored instantly
 --   6. Clean up the temp table
@@ -60,19 +60,26 @@ SELECT COUNT(*) AS current_row_count FROM FACETS_DEV.SILVER.MEMBER;
 EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
     ARGS = 'run --select member --full-refresh --target dev';
 
+-- Capture query ID IMMEDIATELY — before running anything else
+SET bad_run_id = LAST_QUERY_ID();
+SELECT $bad_run_id AS bad_run_query_id;   -- show it for transparency
+
 -- Now re-check — row count should have collapsed (only MEME_STS = 'IN' rows survive)
 SELECT COUNT(*) AS bad_row_count FROM FACETS_DEV.SILVER.MEMBER;
 
 
 -- =============================================================================
--- STEP 3: Clone to a restore point — run this IMMEDIATELY after Step 2
---         Full refresh does DROP + CTAS (not MERGE), so no query ID to hunt.
---         Use timestamp: go back 1 minute to land before the bad run.
+-- STEP 3: Clone to a restore point — three ways to target it (pick one)
+--         Full refresh = DROP + CTAS inside dbt, so $bad_run_id is the outer
+--         EXECUTE DBT PROJECT statement — Snowflake resolves the table state
+--         to just before that wrapper statement started.
 -- =============================================================================
 
 CREATE TABLE FACETS_DEV.SILVER.MEMBER_RESTORE
     CLONE FACETS_DEV.SILVER.MEMBER
-    BEFORE (TIMESTAMP => DATEADD(minute, -1, CURRENT_TIMESTAMP()));
+    BEFORE (STATEMENT => $bad_run_id);                               -- ← most precise: uses captured query ID
+    -- BEFORE (TIMESTAMP => DATEADD(minute, -1, CURRENT_TIMESTAMP()));  -- ← by time: 1 min ago
+    -- BEFORE (OFFSET => -60);                                          -- ← by offset: 60 seconds back
 
 
 -- =============================================================================

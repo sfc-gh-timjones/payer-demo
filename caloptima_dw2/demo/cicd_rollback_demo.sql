@@ -25,8 +25,8 @@
 --
 -- DEMO STORY:
 --   1. A bad dbt change merges via PR → CI/CD deploys it → Silver data is wrong
---   2. Use Time Travel to identify the bad MERGE statement's query ID
---   3. Clone MEMBER to a restore point BEFORE that bad run
+--   2. Trigger full refresh — bad filter wipes Active members
+--   3. Clone MEMBER to a restore point using timestamp (no query ID needed)
 --   4. Verify the restored data looks correct
 --   5. Swap atomically — production table is restored instantly
 --   6. Clean up the temp table
@@ -65,47 +65,18 @@ SELECT COUNT(*) AS bad_row_count FROM FACETS_DEV.SILVER.MEMBER;
 
 
 -- =============================================================================
--- STEP 3: Find the query ID of the bad dbt MERGE run
---         Look for the MERGE into MEMBER from the last CI/CD execution
--- =============================================================================
-
-SELECT
-    QUERY_ID,
-    LEFT(QUERY_TEXT, 120)   AS query_preview,
-    START_TIME,
-    TOTAL_ELAPSED_TIME / 1000 AS elapsed_seconds,
-    ROWS_INSERTED,
-    ROWS_PRODUCED
-FROM TABLE(INFORMATION_SCHEMA.QUERY_HISTORY(
-    END_TIME_RANGE_START => DATEADD('hour', -4, CURRENT_TIMESTAMP())
-))
-WHERE USER_NAME = 'ADMIN'
-  AND QUERY_TEXT ILIKE '%MERGE%INTO%FACETS_DEV%SILVER%MEMBER%'
-ORDER BY START_TIME DESC
-LIMIT 10;
-
--- NOTE: Filter uses FACETS_DEV (not just MEMBER) because dev and qa now run in
--- parallel in CI — both generate MERGE INTO MEMBER queries at the same time.
--- dbt fully qualifies the table name so FACETS_DEV.SILVER.MEMBER vs
--- FACETS_QA.SILVER.MEMBER appears in the query text, making them distinguishable.
-
--- Copy the QUERY_ID of the bad run from the results above
--- and paste it into the BEFORE (STATEMENT => ...) clauses below
-
-
--- =============================================================================
--- STEP 4: Clone to a NEW table first — non-destructive, zero-copy
---         Replace the query ID placeholder with the actual ID from Step 2
+-- STEP 3: Clone to a restore point — run this IMMEDIATELY after Step 2
+--         Full refresh does DROP + CTAS (not MERGE), so no query ID to hunt.
+--         Use timestamp: go back 1 minute to land before the bad run.
 -- =============================================================================
 
 CREATE TABLE FACETS_DEV.SILVER.MEMBER_RESTORE
     CLONE FACETS_DEV.SILVER.MEMBER
-    BEFORE (STATEMENT => '01b3f4e2-0001-a2b3-0000-000100012345');  -- ← replace
+    BEFORE (TIMESTAMP => DATEADD(minute, -1, CURRENT_TIMESTAMP()));
 
 
 -- =============================================================================
--- STEP 5: Verify the restored data looks correct BEFORE swapping
--- =============================================================================
+-- STEP 4: Verify the restored data looks correct BEFORE swapping
 
 -- Row count — should match expected pre-deployment count
 SELECT COUNT(*) AS restored_row_count FROM FACETS_DEV.SILVER.MEMBER_RESTORE;
@@ -123,7 +94,7 @@ SELECT 'RESTORE (good)'  AS version, COUNT(*) AS rows FROM FACETS_DEV.SILVER.MEM
 
 
 -- =============================================================================
--- STEP 6: Swap atomically
+-- STEP 5: Swap atomically
 --         SWAP WITH preserves all grants, pipes, streams, and object identity.
 --         Production is restored in a single atomic operation — no downtime.
 -- =============================================================================
@@ -133,7 +104,7 @@ ALTER TABLE FACETS_DEV.SILVER.MEMBER
 
 
 -- =============================================================================
--- STEP 7: Confirm the swap worked
+-- STEP 6: Confirm the swap worked
 -- =============================================================================
 
 SELECT COUNT(*) AS restored_row_count FROM FACETS_DEV.SILVER.MEMBER;
@@ -141,14 +112,14 @@ SELECT COUNT(*) AS restored_row_count FROM FACETS_DEV.SILVER.MEMBER;
 
 
 -- =============================================================================
--- STEP 8: Clean up the temp table (now holds the bad data)
+-- STEP 7: Clean up the temp table (now holds the bad data)
 -- =============================================================================
 
 DROP TABLE FACETS_DEV.SILVER.MEMBER_RESTORE;
 
 
 -- =============================================================================
--- STEP 9: Fix the code (separate from data recovery)
+-- STEP 8: Fix the code (separate from data recovery)
 --
 --   git revert <bad-commit-sha>
 --   git push origin dev

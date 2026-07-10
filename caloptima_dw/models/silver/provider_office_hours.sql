@@ -9,7 +9,7 @@ SELECT
     PRPR_ID,
 
     PROF_DAY_OF_WK,              -- ✅ CORRECT — comment out for bad code demo
-    -- 'ERR' AS PROF_DAY_OF_WK,  -- 🔴 BAD CODE — uncomment + comment out correct line above
+    -- 'BAD' AS PROF_DAY_OF_WK,  -- 🔴 BAD CODE — uncomment + comment out correct line above
 
     PROF_OPEN_TM,
     PROF_CLOSE_TM,

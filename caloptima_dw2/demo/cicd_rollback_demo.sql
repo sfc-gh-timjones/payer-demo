@@ -8,7 +8,7 @@
 
   1. In the SELECT, comment out the correct line and uncomment the bad one:
         -- PROF_DAY_OF_WK,             ← comment this out
-        'ERR' AS PROF_DAY_OF_WK,       ← uncomment this
+        'BAD' AS PROF_DAY_OF_WK,       ← uncomment this
 
   2. In the WHERE clause, comment out the correct filter and uncomment the bad one:
         -- _SNOWFLAKE_UPDATED_AT > ... ← comment this out
@@ -27,8 +27,8 @@
 --
 -- DEMO STORY:
 --   1. Bad code merged via PR → CI/CD deployed it
---   2. Run incremental → bad filter + bad value MERGEs 'ERR' into ~1,981 rows
---   3. Provider directory is broken — half the office hours show day = 'ERR'
+--   2. Run incremental → bad filter + bad value MERGEs 'BAD' into ~1,981 rows
+--   3. Provider directory is broken — half the office hours show day = 'BAD'
 --   4. Use Time Travel to restore retrospectively, no data reload needed
 --   5. Swap atomically — table restored with no downtime
 --

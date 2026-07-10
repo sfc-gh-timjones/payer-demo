@@ -1,6 +1,25 @@
 -- =============================================================================
 -- FILE: cicd_rollback_demo.sql
 -- PURPOSE: Demo Scenario 6 — CI/CD rollback using Snowflake Time Travel.
+
+/*
+  PRE-DEMO SETUP: Introduce a bad change into member.sql to simulate a bad deployment.
+
+  In caloptima_dw/models/silver/member.sql, add this line to the WHERE clause
+  at the bottom of the model (just before the {% if is_incremental() %} block):
+
+      WHERE m.IS_DUPLICATE = FALSE
+        AND m.MEME_STS = 'IN'     -- ← BAD LINE: only keeps Inactive members, wipes Active ones
+
+  Then commit to a feature branch, open a PR, and let CI/CD merge and deploy it.
+  The Silver MEMBER table will drop from ~5000 rows to a small fraction.
+  This is the "bad deployment" the rollback demo recovers from.
+
+  After the demo, revert the bad commit:
+      git revert <bad-commit-sha>
+      git push origin dev
+  Open a new PR and let CI/CD redeploy the corrected model.
+*/
 --          Shows how to restore SILVER.MEMBER to a pre-deployment state
 --          without reloading any Bronze data or re-running the pipeline.
 --

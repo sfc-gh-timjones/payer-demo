@@ -58,11 +58,7 @@ SELECT COUNT(*) AS current_row_count FROM FACETS_DEV.SILVER.MEMBER;
 -- =============================================================================
 
 EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
-    USING (
-        SELECT       => 'member',
-        FULL_REFRESH => TRUE,
-        TARGET       => 'dev'
-    );
+    ARGS = 'run --select member --full-refresh --target dev';
 
 -- Now re-check — row count should have collapsed (only MEME_STS = 'IN' rows survive)
 SELECT COUNT(*) AS bad_row_count FROM FACETS_DEV.SILVER.MEMBER;

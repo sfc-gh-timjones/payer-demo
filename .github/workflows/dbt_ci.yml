@@ -1,0 +1,71 @@
+name: dbt CI/CD — caloptima_dw
+
+# Triggers only on PRs from dev → main that touch caloptima_dw files.
+# All other files (Openflow scripts, demo SQL, notebooks) never trigger this.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'caloptima_dw/**'
+
+jobs:
+  dbt-pipeline:
+    name: dbt run — dev → qa → prod
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Snowflake CLI
+        uses: Snowflake-Labs/snowflake-cli-action@v2
+
+      # Write a config.toml for the CI connection using GitHub Secrets.
+      # Secrets required (Settings → Secrets → Actions):
+      #   SNOWFLAKE_ACCOUNT  = sfsenorthamerica-tim_jones_demo
+      #   SNOWFLAKE_USER     = ADMIN
+      #   SNOWFLAKE_PAT      = <Programmatic Access Token generated in Snowflake UI>
+      #                        (Admin → Security → Programmatic Access Tokens → Generate)
+      - name: Configure Snowflake connection
+        run: |
+          mkdir -p ~/.snowflake
+          cat > ~/.snowflake/config.toml << EOF
+          [connections.ci]
+          account = "${{ secrets.SNOWFLAKE_ACCOUNT }}"
+          user = "${{ secrets.SNOWFLAKE_USER }}"
+          authenticator = "programmatic_access_token"
+          token = "${{ secrets.SNOWFLAKE_PAT }}"
+          role = "ACCOUNTADMIN"
+          warehouse = "WH_SMALL"
+          EOF
+          chmod 0600 ~/.snowflake/config.toml
+
+      # Each step targets a different environment via --target.
+      # The dbt project object lives at ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW.
+      # Connection flags MUST come before the project name.
+
+      # Deploy first so the latest code changes from this PR are in the Snowflake
+      # project object before any execute steps run against it.
+      - name: Deploy dbt project to Snowflake
+        run: |
+          cd caloptima_dw && snow dbt deploy -c ci \
+            --database ANALYTICS_ADMIN --schema PROJECTS \
+            caloptima_dw
+
+      - name: dbt run — dev (FACETS_DEV)
+        run: |
+          snow dbt execute -c ci \
+            --database ANALYTICS_ADMIN --schema PROJECTS \
+            CALOPTIMA_DW run --target dev
+
+      - name: dbt run — qa (FACETS_QA)
+        run: |
+          snow dbt execute -c ci \
+            --database ANALYTICS_ADMIN --schema PROJECTS \
+            CALOPTIMA_DW run --target qa
+
+      - name: dbt run — prod (FACETS_PROD)
+        run: |
+          snow dbt execute -c ci \
+            --database ANALYTICS_ADMIN --schema PROJECTS \
+            CALOPTIMA_DW run --target prod

@@ -9,8 +9,8 @@ USE WAREHOUSE WH_XS;
 USE SCHEMA FACETS_PROD.AGENTS;
 
 CREATE OR REPLACE AGENT FACETS_PROD.AGENTS.CALOPTIMA_AGENT
-  COMMENT = 'CalOptima Member Enrollment Intelligence Agent'
-  PROFILE = '{"display_name": "CalOptima Member Assistant", "color": "blue"}'
+  COMMENT = 'CalOptima Enrollment Intelligence Agent'
+  PROFILE = '{"display_name": "CalOptima Enrollment Intelligence", "color": "blue"}'
   FROM SPECIFICATION
   $$
   models:
@@ -23,7 +23,7 @@ CREATE OR REPLACE AGENT FACETS_PROD.AGENTS.CALOPTIMA_AGENT
 
   instructions:
     system: >
-      You are the CalOptima Member Assistant. You help healthcare operations
+      You are the CalOptima Enrollment Intelligence assistant. You help healthcare operations
       teams answer questions about member enrollment, plan assignment, PCP
       attribution, and Medicaid eligibility for CalOptima Health's Orange
       County, CA membership. Always cite specific numbers from the data

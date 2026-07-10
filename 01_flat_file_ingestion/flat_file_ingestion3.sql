@@ -28,7 +28,9 @@ CREATE STAGE, CREATE FILE FORMAT
 ************************************************************************/
 
 -- Internal stage — no STORAGE_INTEGRATION or URL required.
+-- DIRECTORY enables the file index visible in Snowsight "Stage Files" tab.
 CREATE OR REPLACE STAGE MY_STAGE
+  DIRECTORY = (ENABLE = TRUE)
   COMMENT = 'Internal stage for flat file ingestion demo';
 
 -- Upload files manually:
@@ -97,15 +99,14 @@ FROM @MY_STAGE
   FILE_FORMAT = (FORMAT_NAME= 'my_csv_file_format')
   MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;
 
---Table now has data. 
+-- Verify the load
 SELECT * FROM pharmacy_claims;
-SELECT COUNT(*) AS rows_loaded FROM pharmacy_claims;
-
 
 /***********************************************************************
-  Step 2: Validation Mode - Begin 
+ VALIDATION MODE
 ************************************************************************/
 
+-- VALIDATION_MODE: preview errors without writing any data to the table
 COPY INTO pharmacy_claims
 FROM @MY_STAGE
 FILES = ('pharmacy_claims_bad_records.csv')
@@ -116,7 +117,7 @@ FILE_FORMAT = (
 )
 VALIDATION_MODE = 'RETURN_ERRORS';
 
-
+-- ON_ERROR = ABORT_STATEMENT: load stops immediately on the first bad row
 COPY INTO pharmacy_claims
 FROM @MY_STAGE
 FILES = ('pharmacy_claims_bad_records.csv')
@@ -127,7 +128,7 @@ FILE_FORMAT = (
 )
 ON_ERROR = 'ABORT_STATEMENT';
 
---continue/ignore errors. 
+-- ON_ERROR = CONTINUE: skip bad rows and load everything else
 COPY INTO pharmacy_claims
 FROM @MY_STAGE
 FILES = ('pharmacy_claims_bad_records.csv')
@@ -138,26 +139,17 @@ FILE_FORMAT = (
 )
 ON_ERROR = 'CONTINUE';
 
-
+-- VALIDATE(): inspect which rows were skipped in the last COPY INTO job
 SELECT *
 FROM TABLE(VALIDATE(pharmacy_claims, JOB_ID => '_last'));
 
+-- ON_ERROR options reference:
+-- SKIP_FILE         — skip the entire file if any error is found
+-- SKIP_FILE_<num>   — skip file if error row count >= num
+-- SKIP_FILE_<num>%  — skip file if error percentage >= num%
 
--- SKIP_FILE:
--- If any error is found in a file, skip that entire file.
--- Useful when you only want completely clean files loaded.
-
--- SKIP_FILE_<num>:
--- Skip the entire file when the number of error rows is equal to or greater than the specified number.
--- Example: skip the file once it hits 10 bad rows.
-
--- SKIP_FILE_<num>%:
--- Skip the entire file when the percentage of error rows reaches or exceeds the specified threshold.
--- Example: skip the file if 5% or more of rows are bad.
-
-/***********************************************************************
- Step 2: Validation Mode - End 
-************************************************************************/
+-- Row count after validation loads
+SELECT COUNT(*) AS total_rows FROM pharmacy_claims;
 
 
 /***********************************************************************
@@ -172,56 +164,50 @@ LOAD VIA SNOWPIPE
 
 
 CREATE OR REPLACE PIPE pipe_demo
-AUTO_INGEST = TRUE
-  AS
-    COPY INTO pharmacy_claims
-    FROM @MY_STAGE
-    PATTERN = '.*pharmacy_claims.*\.csv$'
-    FILE_FORMAT = (FORMAT_NAME= 'my_csv_file_format')
-    MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;
+  AUTO_INGEST = TRUE
+AS
+  COPY INTO pharmacy_claims
+  FROM @MY_STAGE
+  PATTERN = '.*pharmacy_claims.*\.csv$'
+  FILE_FORMAT = (FORMAT_NAME = 'my_csv_file_format')
+  MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;
+
+-- Step 1: Before upload — confirm table has 20 columns (no REFILL_NUMBER)
+DESCRIBE TABLE pharmacy_claims;
 
 -- Upload manually: add pharmacy_claims_inc1.csv, pharmacy_claims_inc2.csv to @MY_STAGE
 -- Snowpipe will auto-ingest them as they land.
-
 SHOW PIPES;
 
+SELECT "name", "notification_channel" AS queue
+FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()));
+
+-- Check pipe health and pending file queue
 SELECT SYSTEM$PIPE_STATUS('pipe_demo');
-
-SELECT *
-FROM pharmacy_claims;
-
 
 /***********************************************************************
   SCHEMA EVOLUTION DEMO
   Upload pharmacy_claims_add_refillnum.csv to the stage manually.
   This file has 21 columns (adds REFILL_NUMBER INTEGER).
-  Trigger pipe refresh; ENABLE_SCHEMA_EVOLUTION + MATCH_BY_COLUMN_NAME
-  causes Snowflake to automatically ALTER the table and add the new column.
+  ENABLE_SCHEMA_EVOLUTION + MATCH_BY_COLUMN_NAME causes Snowflake to
+  automatically ALTER the table and add the new column.
+
+  Step 2: Upload pharmacy_claims_add_refillnum.csv to @MY_STAGE
+    (Snowsight: Data > Add Data > Load files into a Stage > select MY_STAGE)
+  Snowpipe auto-ingests it — no manual trigger needed.
 ************************************************************************/
 
--- Step 1: Before upload — confirm table has 20 columns (no REFILL_NUMBER)
+-- Step 3: After pipe ingests — REFILL_NUMBER appears automatically
 DESCRIBE TABLE pharmacy_claims;
 
--- Step 2: Upload pharmacy_claims_add_refillnum.csv to @MY_STAGE manually
---   (Snowsight: Data > Add Data > Load files into a Stage > select MY_STAGE)
--- Snowpipe auto-ingests it — no manual trigger needed.
-
--- Step 3: After pipe ingests — REFILL_NUMBER was added automatically
-DESCRIBE TABLE pharmacy_claims;
--- REFILL_NUMBER column now appears as INTEGER, NULLABLE
-
--- Step 4: Check the data split — existing rows NULL, new rows have values
+-- Step 4: Check the data — new rows have REFILL_NUMBER populated
 SELECT
     CLAIM_ID,
     DRUG_NAME,
     DAYS_SUPPLY,
-    REFILL_NUMBER,
-    CASE
-        WHEN REFILL_NUMBER IS NULL THEN 'Pre-evolution (original load)'
-        ELSE 'Post-evolution (refill #' || REFILL_NUMBER::VARCHAR || ')'
-    END AS row_origin
+    REFILL_NUMBER
 FROM pharmacy_claims
-ORDER BY REFILL_NUMBER NULLS FIRST
+WHERE REFILL_NUMBER IS NOT NULL
 LIMIT 20;
 
 -- Step 5: Count rows by batch origin

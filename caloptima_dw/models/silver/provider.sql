@@ -2,12 +2,18 @@
     materialized='incremental',
     unique_key='PROVIDER_SK',
     incremental_strategy='merge',
-    on_schema_change='sync_all_columns'
+    on_schema_change='sync_all_columns',
+    full_refresh=false
 ) }}
+{#
+  full_refresh=false: protects SCD2 history from dbt run --full-refresh.
+  Even if the entire project is full-refreshed, this model runs incrementally.
+  To intentionally rebuild: DROP TABLE FACETS_DEV.SILVER.PROVIDER, then dbt run --select provider.
+#}
 
 {% if is_incremental() %}
 
-WITH source AS (
+WITH bronze_current_providers AS (
     SELECT
         p.PRPR_ID,
         p.PRPR_NPI,
@@ -38,15 +44,15 @@ WITH source AS (
     WHERE p.IS_DUPLICATE = FALSE
 ),
 
--- Providers that are new or updated in Bronze since last run
-changed AS (
-    SELECT s.*
-    FROM source s
+-- Providers that are new or have a more recent Bronze timestamp than the current Silver version
+providers_to_version AS (
+    SELECT bp.*
+    FROM bronze_current_providers bp
     LEFT JOIN {{ this }} t
-        ON  s.PRPR_ID = t.PRPR_ID
+        ON  bp.PRPR_ID = t.PRPR_ID
         AND t.IS_CURRENT = TRUE
     WHERE t.PRPR_ID IS NULL
-       OR s.updated_at > t.BRONZE_UPDATED_AT
+       OR bp.updated_at > t.BRONZE_UPDATED_AT
 ),
 
 -- Close the existing open row (same PROVIDER_SK → MERGE updates it)
@@ -83,14 +89,14 @@ rows_to_close AS (
         t.BRONZE_UPDATED_AT,
         CURRENT_TIMESTAMP() AS SILVER_LOADED_AT
     FROM {{ this }} t
-    JOIN changed c
+    JOIN providers_to_version c
         ON  t.PRPR_ID = c.PRPR_ID
         AND t.IS_CURRENT = TRUE
         AND t.BRONZE_UPDATED_AT < c.updated_at
 ),
 
--- Insert new open row for each changed provider (new PROVIDER_SK → MERGE inserts)
-new_rows AS (
+-- Open a new version row for each provider being versioned (new PROVIDER_SK → MERGE inserts)
+new_version_rows AS (
     SELECT
         MD5(PRPR_ID::VARCHAR || '|' || updated_at::VARCHAR) AS PROVIDER_SK,
         PRPR_ID,
@@ -122,16 +128,32 @@ new_rows AS (
         TRUE                AS IS_CURRENT,
         updated_at          AS BRONZE_UPDATED_AT,
         CURRENT_TIMESTAMP() AS SILVER_LOADED_AT
-    FROM changed
+    FROM providers_to_version
 )
 
 SELECT * FROM rows_to_close
 UNION ALL
-SELECT * FROM new_rows
+SELECT * FROM new_version_rows
+
+/*
+  This UNION returns only the rows that need to change this run — not all providers.
+  Unchanged providers already have correct rows in Silver and are not touched.
+  dbt issues a MERGE against the Silver table using unique_key=PROVIDER_SK:
+
+    rows_to_close    → PROVIDER_SK matches an existing row → MERGE UPDATE
+                       (sets EFFECTIVE_TO = new timestamp, IS_CURRENT = FALSE)
+    new_version_rows → PROVIDER_SK is brand new            → MERGE INSERT
+                       (opens a new IS_CURRENT = TRUE row)
+
+  Each changed provider produces exactly 2 rows: one UPDATE + one INSERT.
+  Brand new providers (no prior Silver row) produce only 1 row: just the INSERT.
+*/
 
 {% else %}
 
--- Full refresh: all providers as a single IS_CURRENT=TRUE version
+-- Initial build (table does not exist yet): seeds all current providers as IS_CURRENT=TRUE.
+-- This branch only runs on the very first dbt run when the Silver table is absent.
+-- full_refresh=false in the config ensures --full-refresh never triggers this path again.
 SELECT
     MD5(p.PRPR_ID::VARCHAR || '|' || p.updated_at::VARCHAR) AS PROVIDER_SK,
     p.PRPR_ID,

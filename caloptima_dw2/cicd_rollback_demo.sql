@@ -43,16 +43,33 @@ USE DATABASE FACETS_DEV;
 USE SCHEMA SILVER;
 
 -- =============================================================================
--- STEP 1: Show current (bad) state after the bad deployment
+-- STEP 1: Confirm current state is still good (bad code deployed but not yet run)
+--         CI/CD ran incrementally — 0 new Bronze rows → existing Silver rows untouched
 -- =============================================================================
 
 SELECT COUNT(*) AS current_row_count FROM FACETS_DEV.SILVER.MEMBER;
-
--- Expected: row count is wrong (too low, or data is missing/incorrect)
+-- Expected: full count still intact (incremental run did nothing to existing rows)
 
 
 -- =============================================================================
--- STEP 2: Find the query ID of the bad dbt MERGE run
+-- STEP 2: Trigger the full refresh — this is when the bad filter does damage
+--         Narrate: "full refreshes happen in prod — someone adds a column,
+--         a DBA triggers maintenance, CI runs with --full-refresh flag, etc."
+-- =============================================================================
+
+EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
+    USING (
+        SELECT       => 'member',
+        FULL_REFRESH => TRUE,
+        TARGET       => 'dev'
+    );
+
+-- Now re-check — row count should have collapsed (only MEME_STS = 'IN' rows survive)
+SELECT COUNT(*) AS bad_row_count FROM FACETS_DEV.SILVER.MEMBER;
+
+
+-- =============================================================================
+-- STEP 3: Find the query ID of the bad dbt MERGE run
 --         Look for the MERGE into MEMBER from the last CI/CD execution
 -- =============================================================================
 
@@ -79,7 +96,7 @@ LIMIT 10;
 
 
 -- =============================================================================
--- STEP 3: Clone to a NEW table first — non-destructive, zero-copy
+-- STEP 4: Clone to a NEW table first — non-destructive, zero-copy
 --         Replace the query ID placeholder with the actual ID from Step 2
 -- =============================================================================
 
@@ -89,7 +106,7 @@ CREATE TABLE FACETS_DEV.SILVER.MEMBER_RESTORE
 
 
 -- =============================================================================
--- STEP 4: Verify the restored data looks correct BEFORE swapping
+-- STEP 5: Verify the restored data looks correct BEFORE swapping
 -- =============================================================================
 
 -- Row count — should match expected pre-deployment count
@@ -108,7 +125,7 @@ SELECT 'RESTORE (good)'  AS version, COUNT(*) AS rows FROM FACETS_DEV.SILVER.MEM
 
 
 -- =============================================================================
--- STEP 5: Swap atomically
+-- STEP 6: Swap atomically
 --         SWAP WITH preserves all grants, pipes, streams, and object identity.
 --         Production is restored in a single atomic operation — no downtime.
 -- =============================================================================
@@ -118,7 +135,7 @@ ALTER TABLE FACETS_DEV.SILVER.MEMBER
 
 
 -- =============================================================================
--- STEP 6: Confirm the swap worked
+-- STEP 7: Confirm the swap worked
 -- =============================================================================
 
 SELECT COUNT(*) AS restored_row_count FROM FACETS_DEV.SILVER.MEMBER;
@@ -126,14 +143,14 @@ SELECT COUNT(*) AS restored_row_count FROM FACETS_DEV.SILVER.MEMBER;
 
 
 -- =============================================================================
--- STEP 7: Clean up the temp table (now holds the bad data)
+-- STEP 8: Clean up the temp table (now holds the bad data)
 -- =============================================================================
 
 DROP TABLE FACETS_DEV.SILVER.MEMBER_RESTORE;
 
 
 -- =============================================================================
--- STEP 8: Fix the code (separate from data recovery)
+-- STEP 9: Fix the code (separate from data recovery)
 --
 --   git revert <bad-commit-sha>
 --   git push origin dev

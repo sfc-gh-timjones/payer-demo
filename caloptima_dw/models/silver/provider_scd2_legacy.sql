@@ -1,3 +1,11 @@
+/*
+  KEPT FOR DEMO COMPARISON ONLY — this model is superseded by:
+    snapshots/provider_snapshot.sql  (dbt native SCD2 — 15 lines of config)
+    silver/provider2.sql             (current-state incremental)
+
+  Demonstrates the DIY SCD2 MERGE approach (192 lines) vs dbt native snapshots.
+  Do NOT run this in CI/CD; it targets SILVER.PROVIDER which is now owned by the snapshot.
+*/
 {{ config(
     materialized='incremental',
     unique_key='PROVIDER_SK',

@@ -1,6 +1,5 @@
 WITH source AS (
     SELECT * FROM {{ source('raw', 'CMC_PRPR_PROV') }}
-    WHERE {{ active_records() }}
 )
 SELECT
     PRPR_ID,
@@ -36,5 +35,6 @@ SELECT
     SYS_USUS_ID,
     SYS_LAST_UPD_DTM,
     _SNOWFLAKE_INSERTED_AT,
-    _SNOWFLAKE_UPDATED_AT                                            AS updated_at
+    _SNOWFLAKE_UPDATED_AT                                            AS updated_at,
+    _SNOWFLAKE_DELETED                                               AS IS_DELETED
 FROM source

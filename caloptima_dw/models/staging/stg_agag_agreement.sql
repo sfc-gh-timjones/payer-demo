@@ -1,6 +1,5 @@
 WITH source AS (
     SELECT * FROM {{ source('raw', 'CMC_AGAG_AGREEMENT') }}
-    WHERE {{ active_records() }}
 )
 SELECT
     AGAG_ID,
@@ -19,5 +18,6 @@ SELECT
         ELSE AGAG_MCTR_TYPE
     END                             AS CONTRACT_TYPE_DESC,
     SYS_LAST_UPD_DTM,
-    _SNOWFLAKE_UPDATED_AT           AS updated_at
+    _SNOWFLAKE_UPDATED_AT           AS updated_at,
+    _SNOWFLAKE_DELETED              AS IS_DELETED
 FROM source

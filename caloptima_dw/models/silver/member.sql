@@ -33,6 +33,7 @@ SELECT
     mcd.MECD_EFF_DT                             AS MEDICAID_EFF_DT,
     mcd.MECD_TERM_DT                            AS MEDICAID_TERM_DT,
     m.DUPLICATE_COUNT,
+    m.IS_DELETED,
     m.updated_at                                AS BRONZE_UPDATED_AT,
     CURRENT_TIMESTAMP()                         AS SILVER_LOADED_AT
 FROM 

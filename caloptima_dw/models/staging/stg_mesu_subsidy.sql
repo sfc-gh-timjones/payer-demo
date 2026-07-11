@@ -1,6 +1,5 @@
 WITH source AS (
     SELECT * FROM {{ source('raw', 'CMC_MESU_SUBSIDY') }}
-    WHERE {{ active_records() }}
 )
 SELECT
     MESU_ID,
@@ -15,5 +14,6 @@ SELECT
     MESU_PREMIUM_AMT,
     MESU_SUBSIDY_TYPE,
     SYS_LAST_UPD_DTM,
-    _SNOWFLAKE_UPDATED_AT           AS updated_at
+    _SNOWFLAKE_UPDATED_AT           AS updated_at,
+    _SNOWFLAKE_DELETED              AS IS_DELETED
 FROM source

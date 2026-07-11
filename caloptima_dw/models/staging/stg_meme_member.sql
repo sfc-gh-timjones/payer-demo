@@ -1,6 +1,5 @@
 WITH source AS (
     SELECT * FROM {{ source('raw', 'CMC_MEME_MEMBER') }}
-    WHERE {{ active_records() }}
 )
 SELECT
     MEME_ID,
@@ -38,5 +37,6 @@ SELECT
         COALESCE(UPPER(MEME_FIRST_NAME), '')
     ))                              AS DEMO_KEY,
     SYS_LAST_UPD_DTM,
-    _SNOWFLAKE_UPDATED_AT           AS updated_at
+    _SNOWFLAKE_UPDATED_AT           AS updated_at,
+    _SNOWFLAKE_DELETED              AS IS_DELETED
 FROM source

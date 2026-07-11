@@ -1,6 +1,5 @@
 WITH source AS (
     SELECT * FROM {{ source('raw', 'CMC_MEPE_PRCS_ELIG') }}
-    WHERE {{ active_records() }}
 )
 SELECT
     MEPE_ID,
@@ -28,5 +27,6 @@ SELECT
         ELSE MEPE_PLAN_TYPE
     END                             AS PLAN_TYPE_DESC,
     SYS_LAST_UPD_DTM,
-    _SNOWFLAKE_UPDATED_AT           AS updated_at
+    _SNOWFLAKE_UPDATED_AT           AS updated_at,
+    _SNOWFLAKE_DELETED              AS IS_DELETED
 FROM source

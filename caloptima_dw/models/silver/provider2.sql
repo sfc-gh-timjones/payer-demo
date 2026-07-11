@@ -7,11 +7,11 @@
 
 /*
   Current-state provider model — simple merge on PRPR_ID, no SCD2 history.
-  Use this for Gold views, the Semantic Layer, and the Agent (current state only).
+  Optimized for queries that only need today's data (Agent, Gold views, reporting).
+  Use this when you don't need history and want to avoid filtering dbt_valid_to IS NULL.
 
-  For full change history use SILVER.PROVIDER (dbt snapshot in snapshots/provider_snapshot.sql):
-    WHERE dbt_valid_to IS NULL      → current records
-    WHERE dbt_valid_to IS NOT NULL  → historical (superseded) records
+  For full SCD2 history with enriched columns: query SILVER.PROVIDER (view).
+  For raw SCD2 history only:                   query SILVER.PROVIDER_SNAPSHOT.
 */
 
 SELECT

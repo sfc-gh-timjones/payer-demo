@@ -3,6 +3,7 @@
 {{
     config(
         target_schema='SILVER',
+        alias='PROVIDER_SNAPSHOT',
         strategy='timestamp',
         unique_key='PRPR_ID',
         updated_at='updated_at',

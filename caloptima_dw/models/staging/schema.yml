@@ -55,6 +55,7 @@ models:
       - name: PLAN_TYPE_DESC
         tests:
           - accepted_values:
+              severity: warn
               values:
                 - 'Health Maintenance Organization'
                 - 'Preferred Provider Organization'

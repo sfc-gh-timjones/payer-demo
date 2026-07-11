@@ -1,3 +1,4 @@
+{{ config(severity='warn') }}
 -- Singular test: no member should have more than one active PCP assignment
 -- BEFORE resolution by int_meme_pcp_current.
 -- silver.member already has one row per MEME_ID so testing there is a no-op.

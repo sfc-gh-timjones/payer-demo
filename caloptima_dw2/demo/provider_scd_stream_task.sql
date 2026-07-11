@@ -243,10 +243,12 @@ SELECT
     COUNT(DISTINCT PRPR_ID)                             AS distinct_providers
 FROM FACETS_DEV.SILVER.PROVIDER_SCD_STREAM_TASK;
 
--- Cross-check all three SCD2 implementations return same current count
-SELECT 'PROVIDER_SNAPSHOT'      AS src, COUNT(*) AS current_providers FROM FACETS_DEV.SILVER.PROVIDER_SNAPSHOT      WHERE dbt_valid_to IS NULL
+-- Cross-check all three SCD2 implementations
+-- Note: PROVIDER_SNAPSHOT won't exist until dbt build runs with snapshot support;
+--       replace with SILVER.PROVIDER (legacy) until then.
+SELECT 'dbt snapshot (PROVIDER_SNAPSHOT)' AS approach, COUNT(*) AS current_providers FROM FACETS_DEV.SILVER.PROVIDER_SNAPSHOT      WHERE dbt_valid_to IS NULL
 UNION ALL
-SELECT 'PROVIDER_SCD_STREAM'    AS src, COUNT(*) AS current_providers FROM FACETS_DEV.SILVER.PROVIDER_SCD_STREAM_TASK WHERE IS_CURRENT = TRUE
+SELECT 'Stream/Task/MERGE'                AS approach, COUNT(*) AS current_providers FROM FACETS_DEV.SILVER.PROVIDER_SCD_STREAM_TASK WHERE IS_CURRENT = TRUE
 UNION ALL
-SELECT 'PROVIDER_SCD_DT'        AS src, COUNT(*) AS current_providers FROM FACETS_DEV.SILVER.PROVIDER_SCD_DT          WHERE IS_CURRENT = TRUE
-ORDER BY src;
+SELECT 'Legacy incremental dbt'           AS approach, COUNT(*) AS current_providers FROM FACETS_DEV.SILVER.PROVIDER              WHERE IS_CURRENT = TRUE
+ORDER BY approach;

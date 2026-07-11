@@ -10,7 +10,7 @@ on:
 
 jobs:
   dbt-pipeline:
-    name: dbt run — dev → qa → prod
+    name: dbt build — dev → qa → prod
     runs-on: ubuntu-latest
 
     steps:
@@ -41,20 +41,20 @@ jobs:
             --database ANALYTICS_ADMIN --schema PROJECTS \
             caloptima_dw
 
-      - name: dbt run — dev (FACETS_DEV)
+      - name: dbt build — dev (FACETS_DEV)
         run: |
           snow dbt execute -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
-            CALOPTIMA_DW run --target dev
+            CALOPTIMA_DW build --target dev
 
-      - name: dbt run — qa (FACETS_QA)
+      - name: dbt build — qa (FACETS_QA)
         run: |
           snow dbt execute -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
-            CALOPTIMA_DW run --target qa
+            CALOPTIMA_DW build --target qa
 
-      - name: dbt run — prod (FACETS_PROD)
+      - name: dbt build — prod (FACETS_PROD)
         run: |
           snow dbt execute -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
-            CALOPTIMA_DW run --target prod
+            CALOPTIMA_DW build --target prod

@@ -1,7 +1,9 @@
 {{
     config(
-        materialized='view',
-        schema='SILVER'
+        materialized='incremental',
+        unique_key='dbt_scd_id',
+        incremental_strategy='merge',
+        on_schema_change='sync_all_columns'
     )
 }}
 
@@ -26,6 +28,10 @@
   Note: enriched columns (address, network, org) reflect CURRENT source state,
   not the state at the time of the historical snapshot row. For fully temporal
   enrichment, those attributes would need their own snapshot tables.
+
+  Incremental strategy: merges on dbt_scd_id (snapshot's unique row hash).
+  New snapshot rows (new provider versions) get inserted; updated enrichment
+  on existing rows gets merged.
 */
 
 SELECT
@@ -68,3 +74,9 @@ SELECT
 FROM {{ ref('provider_snapshot') }} snap
 LEFT JOIN {{ ref('int_prpr_org_hierarchy') }} enriched
     ON snap.PRPR_ID = enriched.PRPR_ID
+{% if is_incremental() %}
+WHERE snap.dbt_updated_at > (
+    SELECT COALESCE(MAX(dbt_updated_at), '1900-01-01'::TIMESTAMP_NTZ)
+    FROM {{ this }}
+)
+{% endif %}

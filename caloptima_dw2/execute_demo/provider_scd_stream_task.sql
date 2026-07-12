@@ -1,7 +1,7 @@
 -- =============================================================================
 -- FILE: provider_scd_stream_task.sql
 -- PURPOSE: SCD2 for CMC_PRPR_PROV using Snowflake-native Stream + Task + MERGE.
---          Creates FACETS_DEV.SILVER.PROVIDER_SCD_STREAM_TASK.
+--          Creates FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM.
 --          Equivalent to SILVER.PROVIDER_SNAPSHOT but uses non-dbt column naming:
 --            EFFECTIVE_FROM / EFFECTIVE_TO / IS_CURRENT  (vs dbt_valid_from / dbt_valid_to)
 --
@@ -40,14 +40,14 @@ CREATE OR REPLACE STREAM FACETS_BRONZE.UTILS.PRPR_PROV_CHANGE_STREAM
     ON TABLE FACETS_BRONZE.RAW.CMC_PRPR_PROV
     APPEND_ONLY       = FALSE
     SHOW_INITIAL_ROWS = FALSE
-    COMMENT           = 'CDC stream on CMC_PRPR_PROV for SCD2 pipeline into SILVER.PROVIDER_SCD_STREAM_TASK';
+    COMMENT           = 'CDC stream on CMC_PRPR_PROV for SCD2 pipeline into SILVER.PROVIDER_SCD2_VIA_STREAM';
 
 
 -- =============================================================================
 -- STEP 3: Create SCD2 target table
 -- =============================================================================
 
-CREATE OR REPLACE TABLE FACETS_DEV.SILVER.PROVIDER_SCD_STREAM_TASK (
+CREATE OR REPLACE TABLE FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM (
     PROVIDER_SK         VARCHAR        NOT NULL,    -- MD5(PRPR_ID || EFFECTIVE_FROM)
     PRPR_ID             NUMBER         NOT NULL,    -- business key
     PRPR_NPI            VARCHAR,
@@ -74,7 +74,7 @@ CREATE OR REPLACE TABLE FACETS_DEV.SILVER.PROVIDER_SCD_STREAM_TASK (
 --         Run once after table creation. Stream captures deltas going forward.
 -- =============================================================================
 
-INSERT INTO FACETS_DEV.SILVER.PROVIDER_SCD_STREAM_TASK
+INSERT INTO FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM
 SELECT
     MD5(PRPR_ID::VARCHAR || '|' || _SNOWFLAKE_UPDATED_AT::VARCHAR)  AS PROVIDER_SK,
     PRPR_ID,
@@ -154,7 +154,7 @@ BEGIN
     FROM FACETS_BRONZE.UTILS.PRPR_PROV_CHANGE_STREAM;
 
     -- Step A: Close the current (IS_CURRENT=TRUE) row for every changed/deleted provider
-    UPDATE FACETS_DEV.SILVER.PROVIDER_SCD_STREAM_TASK t
+    UPDATE FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM t
     SET
         EFFECTIVE_TO     = c._SNOWFLAKE_UPDATED_AT,
         IS_CURRENT       = FALSE
@@ -169,7 +169,7 @@ BEGIN
     rows_closed := SQLROWCOUNT;
 
     -- Step B: Insert new version for each non-deleted provider
-    INSERT INTO FACETS_DEV.SILVER.PROVIDER_SCD_STREAM_TASK
+    INSERT INTO FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM
     SELECT
         MD5(PRPR_ID::VARCHAR || '|' || _SNOWFLAKE_UPDATED_AT::VARCHAR) AS PROVIDER_SK,
         PRPR_ID,
@@ -225,7 +225,7 @@ CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK
     WAREHOUSE = WH_XS
     AFTER     FACETS_BRONZE.UTILS.FACETS_SILVER_REFRESH
     WHEN      SYSTEM$STREAM_HAS_DATA('FACETS_BRONZE.UTILS.PRPR_PROV_CHANGE_STREAM')
-    COMMENT   = 'SCD2 refresh for SILVER.PROVIDER_SCD_STREAM_TASK when Bronze CMC_PRPR_PROV changes'
+    COMMENT   = 'SCD2 refresh for SILVER.PROVIDER_SCD2_VIA_STREAM when Bronze CMC_PRPR_PROV changes'
 AS
     CALL FACETS_DEV.SILVER.SP_PROVIDER_SCD2_STREAM_REFRESH();
 
@@ -241,14 +241,14 @@ SELECT
     COUNT(*)                                            AS total_rows,
     SUM(CASE WHEN IS_CURRENT THEN 1 ELSE 0 END)         AS current_rows,
     COUNT(DISTINCT PRPR_ID)                             AS distinct_providers
-FROM FACETS_DEV.SILVER.PROVIDER_SCD_STREAM_TASK;
+FROM FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM;
 
 -- Cross-check all three SCD2 implementations
 -- Note: PROVIDER_SNAPSHOT won't exist until dbt build runs with snapshot support;
 --       replace with SILVER.PROVIDER (legacy) until then.
 SELECT 'dbt snapshot (PROVIDER_SNAPSHOT)' AS approach, COUNT(*) AS current_providers FROM FACETS_DEV.SILVER.PROVIDER_SNAPSHOT      WHERE dbt_valid_to IS NULL
 UNION ALL
-SELECT 'Stream/Task/MERGE'                AS approach, COUNT(*) AS current_providers FROM FACETS_DEV.SILVER.PROVIDER_SCD_STREAM_TASK WHERE IS_CURRENT = TRUE
+SELECT 'Stream/Task/MERGE'                AS approach, COUNT(*) AS current_providers FROM FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM WHERE IS_CURRENT = TRUE
 UNION ALL
 SELECT 'Legacy incremental dbt'           AS approach, COUNT(*) AS current_providers FROM FACETS_DEV.SILVER.PROVIDER              WHERE IS_CURRENT = TRUE
 ORDER BY approach;

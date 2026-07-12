@@ -3,37 +3,39 @@
 -- PURPOSE: Demo Scenario 6 — CI/CD rollback using Snowflake Time Travel.
 
 /*
-  PRE-DEMO SETUP: Introduce a bad change into member.sql to simulate a bad deployment.
+  PRE-DEMO SETUP: In caloptima_dw/models/silver/provider_office_hours.sql,
+  activate the bad code by swapping the two commented blocks:
 
-  In caloptima_dw/models/silver/member.sql, add this line to the WHERE clause
-  at the bottom of the model (just before the {% if is_incremental() %} block):
+  1. In the SELECT, comment out the correct line and uncomment the bad one:
+        -- PROF_DAY_OF_WK,             ← comment this out
+        'BAD' AS PROF_DAY_OF_WK,       ← uncomment this
 
-      WHERE m.IS_DUPLICATE = FALSE
-        AND m.MEME_STS = 'IN'     -- ← BAD LINE: only keeps Inactive members, wipes Active ones
+  2. In the WHERE clause, comment out the correct filter and uncomment the bad one:
+        -- _SNOWFLAKE_UPDATED_AT > ... ← comment this out
+        PROF_ID % 2 = 0                ← uncomment this
 
-  Then commit to a feature branch, open a PR, and let CI/CD merge and deploy it.
-  The Silver MEMBER table will drop from ~5000 rows to a small fraction.
-  This is the "bad deployment" the rollback demo recovers from.
+  Then commit to dev, open a PR to main, and let CI/CD deploy it.
+  When run incrementally, ~1,981 rows will be MERGEd with PROF_DAY_OF_WK = 'ERR'.
+
+  The table is never dropped (MERGE, not full refresh) so Time Travel is intact.
 
   After the demo, revert the bad commit:
       git revert <bad-commit-sha>
       git push origin dev
   Open a new PR and let CI/CD redeploy the corrected model.
 */
---          Shows how to restore SILVER.MEMBER to a pre-deployment state
---          without reloading any Bronze data or re-running the pipeline.
 --
 -- DEMO STORY:
 --   1. Bad code merged via PR → CI/CD deployed it
---   2. Full refresh triggered → bad filter wiped Active members
---   3. Discover the damage, use Time Travel to restore retrospectively
---   4. Swap atomically — table restored with no downtime
---   5. Separately: git revert the code, CI/CD redeploys clean
+--   2. Run incremental → bad filter + bad value MERGEs 'BAD' into ~1,981 rows
+--   3. Provider directory is broken — half the office hours show day = 'BAD'
+--   4. Use Time Travel to restore retrospectively, no data reload needed
+--   5. Swap atomically — table restored with no downtime
 --
 -- KEY TALKING POINT:
+--   MERGE (not full refresh) = table object stays intact = Time Travel works.
 --   Snowflake separates data recovery from code recovery.
---   Data is restored in seconds while the code fix goes through proper PR review.
---   The table is never down waiting for a code review to complete.
+--   Table is never down waiting for a code review to complete.
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -41,39 +43,45 @@ USE DATABASE FACETS_DEV;
 USE SCHEMA SILVER;
 
 -- =============================================================================
--- STEP 1: Confirm the damage — bad code deployed + full refresh wipes Active members
+-- STEP 1: Confirm the damage
 -- =============================================================================
 
-SELECT COUNT(*) AS current_row_count FROM FACETS_DEV.SILVER.MEMBER;
--- Expected: row count is too low (only MEME_STS = 'IN' rows survived the full refresh)
+-- Overall row count
+SELECT COUNT(*) AS total_rows FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS;
+
+-- How many rows have the corrupted day value
+SELECT PROF_DAY_OF_WK, COUNT(*) AS cnt
+FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
+GROUP BY PROF_DAY_OF_WK
+ORDER BY cnt DESC;
 
 
 -- =============================================================================
--- STEP 2: Trigger the full refresh — this is when the bad filter does damage
---         Narrate: "full refreshes happen in prod — someone adds a column,
---         a DBA triggers maintenance, CI runs with --full-refresh flag, etc."
---         (Skip this step if damage is already present from a prior run)
+-- STEP 2: Run the incremental model to introduce the damage
+--         (skip if damage is already present from a prior run)
 -- =============================================================================
 
 EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
-    ARGS = 'run --select member --full-refresh --target dev';
+    ARGS = 'run --select provider_office_hours --target dev';
 
 -- Capture query ID IMMEDIATELY — before running anything else
 SET bad_run_id = LAST_QUERY_ID();
-SELECT $bad_run_id AS bad_run_query_id;   -- show it for transparency
+SELECT $bad_run_id AS bad_run_query_id;
 
--- Confirm damage
-SELECT COUNT(*) AS bad_row_count FROM FACETS_DEV.SILVER.MEMBER;
+-- Confirm damage — ERR should now appear
+SELECT PROF_DAY_OF_WK, COUNT(*) AS cnt
+FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
+GROUP BY PROF_DAY_OF_WK
+ORDER BY cnt DESC;
 
 
 -- =============================================================================
--- STEP 3: Clone to a restore point using Time Travel (three options — pick one)
---         Silver tables are permanent (transient: false in dbt_project.yml)
---         so Time Travel history is available.
+-- STEP 3: Clone to a restore point using Time Travel
+--         MERGE preserves the table object — Time Travel history is intact.
 -- =============================================================================
 
-CREATE TABLE FACETS_DEV.SILVER.MEMBER_RESTORE
-    CLONE FACETS_DEV.SILVER.MEMBER
+CREATE TABLE FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS_RESTORE
+    CLONE FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
     BEFORE (STATEMENT => $bad_run_id);                               -- ← most precise: uses captured query ID
     -- BEFORE (TIMESTAMP => DATEADD(minute, -5, CURRENT_TIMESTAMP()));  -- ← by time: 5 min ago
     -- BEFORE (OFFSET => -300);                                         -- ← by offset: 300 seconds back
@@ -83,8 +91,11 @@ CREATE TABLE FACETS_DEV.SILVER.MEMBER_RESTORE
 -- STEP 4: Verify the restored data looks correct
 -- =============================================================================
 
-SELECT COUNT(*) AS restored_row_count FROM FACETS_DEV.SILVER.MEMBER_RESTORE;
--- Should match the expected pre-bad-run count
+SELECT PROF_DAY_OF_WK, COUNT(*) AS cnt
+FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS_RESTORE
+GROUP BY PROF_DAY_OF_WK
+ORDER BY cnt DESC;
+-- Should show MON/TUE/WED/THU/FRI/SAT/SUN with no ERR
 
 
 -- =============================================================================
@@ -93,23 +104,26 @@ SELECT COUNT(*) AS restored_row_count FROM FACETS_DEV.SILVER.MEMBER_RESTORE;
 --         Production is restored in a single atomic operation — no downtime.
 -- =============================================================================
 
-ALTER TABLE FACETS_DEV.SILVER.MEMBER
-    SWAP WITH FACETS_DEV.SILVER.MEMBER_RESTORE;
+ALTER TABLE FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
+    SWAP WITH FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS_RESTORE;
 
 
 -- =============================================================================
 -- STEP 6: Confirm the swap worked
 -- =============================================================================
 
-SELECT COUNT(*) AS restored_row_count FROM FACETS_DEV.SILVER.MEMBER;
--- Should now match the RESTORE count from Step 4
+SELECT PROF_DAY_OF_WK, COUNT(*) AS cnt
+FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
+GROUP BY PROF_DAY_OF_WK
+ORDER BY cnt DESC;
+-- ERR is gone — MON/TUE/WED/THU/FRI/SAT/SUN back to normal
 
 
 -- =============================================================================
 -- STEP 7: Clean up the temp table (now holds the bad data)
 -- =============================================================================
 
-DROP TABLE FACETS_DEV.SILVER.MEMBER_RESTORE;
+DROP TABLE FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS_RESTORE;
 
 
 -- =============================================================================

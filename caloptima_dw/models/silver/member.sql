@@ -33,6 +33,7 @@ SELECT
     mcd.MECD_EFF_DT                             AS MEDICAID_EFF_DT,
     mcd.MECD_TERM_DT                            AS MEDICAID_TERM_DT,
     m.DUPLICATE_COUNT,
+    m.IS_DELETED,
     m.updated_at                                AS BRONZE_UPDATED_AT,
     CURRENT_TIMESTAMP()                         AS SILVER_LOADED_AT
 FROM 
@@ -41,7 +42,6 @@ FROM
     LEFT JOIN {{ ref('int_meme_medicaid') }}    mcd ON m.MEME_ID = mcd.MEME_ID
 WHERE 
     m.IS_DUPLICATE = FALSE
-    AND m.MEME_STS = 'IN'     -- ← BAD LINE: Only keeps Inactive members, wipes Active ones
     {% if is_incremental() %}
         AND m.updated_at > (
             SELECT COALESCE(MAX(BRONZE_UPDATED_AT), '1900-01-01'::TIMESTAMP_NTZ)

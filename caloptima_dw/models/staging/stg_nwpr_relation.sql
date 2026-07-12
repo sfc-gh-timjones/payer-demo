@@ -1,6 +1,5 @@
 WITH source AS (
     SELECT * FROM {{ source('raw', 'CMC_NWPR_RELATION') }}
-    WHERE {{ active_records() }}
 )
 SELECT
     NWPR_ID,
@@ -18,5 +17,6 @@ SELECT
     NWPR_ACC_PAT_IND,
     NWPR_ACC_MEDCD_IND,
     SYS_LAST_UPD_DTM,
-    _SNOWFLAKE_UPDATED_AT           AS updated_at
+    _SNOWFLAKE_UPDATED_AT           AS updated_at,
+    _SNOWFLAKE_DELETED              AS IS_DELETED
 FROM source

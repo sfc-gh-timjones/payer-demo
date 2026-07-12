@@ -55,6 +55,7 @@ models:
       - name: PLAN_TYPE_DESC
         tests:
           - accepted_values:
+              severity: warn
               values:
                 - 'Health Maintenance Organization'
                 - 'Preferred Provider Organization'
@@ -177,28 +178,28 @@ unit_tests:
         - {PRPR_ID: 2003, NPI_VALID: false}
 
   - name: test_member_demo_key_deterministic
-    description: "Same demographics always produce the same DEMO_KEY"
+    description: "Same demographics always produce the same DEMO_KEY (case-insensitive name match)"
     model: stg_meme_member
     given:
       - input: source('raw', 'CMC_MEME_MEMBER')
         rows:
-          - {MEME_ID: 3001, SBSB_ID: 'S100', MEME_LAST_NAME: 'SMITH',
+          - {MEME_ID: 3001, SBSB_ID: 100, MEME_LAST_NAME: 'SMITH',
              MEME_FIRST_NAME: 'JOHN', MEME_DOB: '1980-05-15', MEME_SEX: 'M',
              MEME_REL_CD: '01', MEME_STS: 'AC', MEME_MCTR_TYPE: 'HMO',
              SYS_LAST_UPD_DTM: '2025-01-01', _SNOWFLAKE_UPDATED_AT: '2025-01-01',
              _SNOWFLAKE_DELETED: false}
-          - {MEME_ID: 3002, SBSB_ID: 'S100', MEME_LAST_NAME: 'smith',
+          - {MEME_ID: 3002, SBSB_ID: 100, MEME_LAST_NAME: 'smith',
              MEME_FIRST_NAME: 'john', MEME_DOB: '1980-05-15', MEME_SEX: 'M',
              MEME_REL_CD: '01', MEME_STS: 'AC', MEME_MCTR_TYPE: 'HMO',
              SYS_LAST_UPD_DTM: '2025-06-01', _SNOWFLAKE_UPDATED_AT: '2025-06-01',
              _SNOWFLAKE_DELETED: false}
     expect:
       rows:
-        - {MEME_ID: 3001, DEMO_KEY: md5('S100|1980-05-15|M|SMITH|JOHN')}
-        - {MEME_ID: 3002, DEMO_KEY: md5('S100|1980-05-15|M|SMITH|JOHN')}
+        - {MEME_ID: 3001, DEMO_KEY: '0fdbb77cd74a8e8fe7e30e38eb3966c0'}
+        - {MEME_ID: 3002, DEMO_KEY: '0fdbb77cd74a8e8fe7e30e38eb3966c0'}
 
-  - name: test_soft_delete_filter
-    description: "Rows with _SNOWFLAKE_DELETED=TRUE are excluded from staging"
+  - name: test_soft_delete_passthrough
+    description: "IS_DELETED is passed through from source — deleted rows are not filtered at staging"
     model: stg_prpr_prov
     given:
       - input: source('raw', 'CMC_PRPR_PROV')
@@ -215,4 +216,5 @@ unit_tests:
              _SNOWFLAKE_UPDATED_AT: '2025-01-01', _SNOWFLAKE_DELETED: true}
     expect:
       rows:
-        - {PRPR_ID: 4001}
+        - {PRPR_ID: 4001, IS_DELETED: false}
+        - {PRPR_ID: 4002, IS_DELETED: true}

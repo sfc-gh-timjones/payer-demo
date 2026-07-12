@@ -1,6 +1,5 @@
 WITH source AS (
     SELECT * FROM {{ source('raw', 'CMC_PRER_RELATION') }}
-    WHERE {{ active_records() }}
 )
 SELECT
     PRER_ID,
@@ -14,5 +13,6 @@ SELECT
     END                             AS IS_ACTIVE_LINK,
     PRER_PRPR_ENTITY,
     SYS_LAST_UPD_DTM,
-    _SNOWFLAKE_UPDATED_AT           AS updated_at
+    _SNOWFLAKE_UPDATED_AT           AS updated_at,
+    _SNOWFLAKE_DELETED              AS IS_DELETED
 FROM source

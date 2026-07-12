@@ -15,6 +15,8 @@
   attribution, Medi-Cal BIC, and effective/termination dates. It will serve as
   the primary input for member roster exports, care management workflows, and
   enrollment dashboards.
+
+  Soft-delete filter required: WHERE NOT m.IS_DELETED
 */
 
 SELECT

@@ -3,10 +3,11 @@ version: '1.0.0'
 config-version: 2
 profile: caloptima_dw
 
-model-paths: ["models"]
-test-paths: ["tests"]
-macro-paths: ["macros"]
+model-paths:    ["models"]
+test-paths:     ["tests"]
+macro-paths:    ["macros"]
 analysis-paths: ["analysis"]
+snapshot-paths: ["snapshots"]
 
 models:
   caloptima_dw:
@@ -27,3 +28,8 @@ models:
     ops:
       +materialized: table
       +schema: DQ
+
+snapshots:
+  caloptima_dw:
+    +target_schema: SILVER
+    +transient: false

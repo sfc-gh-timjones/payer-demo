@@ -1,6 +1,5 @@
 WITH source AS (
     SELECT * FROM {{ source('raw', 'CMC_MEPR_PRIM_PROV') }}
-    WHERE {{ active_records() }}
 )
 SELECT
     MEME_ID,
@@ -19,5 +18,6 @@ SELECT
         ELSE MEPR_PCP_TYPE
     END                             AS PCP_TYPE_DESC,
     SYS_LAST_UPD_DTM,
-    _SNOWFLAKE_UPDATED_AT           AS updated_at
+    _SNOWFLAKE_UPDATED_AT           AS updated_at,
+    _SNOWFLAKE_DELETED              AS IS_DELETED
 FROM source

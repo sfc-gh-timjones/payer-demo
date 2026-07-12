@@ -1,6 +1,5 @@
 WITH source AS (
     SELECT * FROM {{ source('raw', 'CMC_PRNP_NPI') }}
-    WHERE {{ active_records() }}
 )
 SELECT
     PRNP_ID,
@@ -18,5 +17,6 @@ SELECT
     END                             AS NPI_TYPE_DESC,
     PRNP_EFF_DT,
     SYS_LAST_UPD_DTM,
-    _SNOWFLAKE_UPDATED_AT           AS updated_at
+    _SNOWFLAKE_UPDATED_AT           AS updated_at,
+    _SNOWFLAKE_DELETED              AS IS_DELETED
 FROM source

@@ -1,26 +1,36 @@
 name: dbt CI/CD — caloptima_dw
 
-# Triggers only on PRs from dev → main that touch caloptima_dw files.
-# All other files (Openflow scripts, demo SQL, notebooks) never trigger this.
+# push → dev:          deploy + build --target dev  (keeps live Snowflake tasks current)
+# pull_request → main: deploy + dev + qa + prod      (full gate before merging)
+# workflow_dispatch:   manual deploy + dev            (demo "deploy now" button)
+
 on:
+  push:
+    branches: [dev]
+    paths:
+      - 'caloptima_dw/**'
   pull_request:
     branches: [main]
     paths:
       - 'caloptima_dw/**'
+  workflow_dispatch:
+
+# Cancel any in-progress run for the same ref when a new push arrives.
+# Prevents stale deploys queueing up when you push repeatedly.
+concurrency:
+  group: dbt-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  dbt-pipeline:
-    name: dbt build — dev → qa → prod
+  # ─── Job 1: always runs (push, PR, or manual) ────────────────────────────────
+  deploy-and-dev:
+    name: Deploy + dbt build (dev)
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
       - uses: Snowflake-Labs/snowflake-cli-action@v2
 
-      # Secrets required (Settings → Secrets → Actions):
-      #   SNOWFLAKE_ACCOUNT  = sfsenorthamerica-tim_jones_demo
-      #   SNOWFLAKE_USER     = ADMIN
-      #   SNOWFLAKE_PAT      = <Programmatic Access Token>
       - name: Configure Snowflake connection
         run: |
           mkdir -p ~/.snowflake
@@ -46,6 +56,31 @@ jobs:
           snow dbt execute -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
             CALOPTIMA_DW build --target dev
+
+  # ─── Job 2: PR to main only — qa + prod gate ─────────────────────────────────
+  qa-and-prod:
+    name: dbt build (qa + prod)
+    needs: deploy-and-dev
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Snowflake-Labs/snowflake-cli-action@v2
+
+      - name: Configure Snowflake connection
+        run: |
+          mkdir -p ~/.snowflake
+          cat > ~/.snowflake/config.toml << EOF
+          [connections.ci]
+          account = "${{ secrets.SNOWFLAKE_ACCOUNT }}"
+          user = "${{ secrets.SNOWFLAKE_USER }}"
+          authenticator = "programmatic_access_token"
+          token = "${{ secrets.SNOWFLAKE_PAT }}"
+          role = "ACCOUNTADMIN"
+          warehouse = "WH_SMALL"
+          EOF
+          chmod 0600 ~/.snowflake/config.toml
 
       - name: dbt build — qa (FACETS_QA)
         run: |

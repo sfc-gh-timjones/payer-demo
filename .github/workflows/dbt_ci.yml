@@ -1,8 +1,12 @@
 name: dbt CI/CD — caloptima_dw
 
-# push → dev:          deploy + build --target dev  (keeps live Snowflake tasks current)
-# pull_request → main: deploy + dev + qa + prod      (full gate before merging)
-# workflow_dispatch:   manual deploy + dev            (demo "deploy now" button)
+# push → dev:          deploy CALOPTIMA_DW_DEV + build --target dev  (dev-isolated)
+# pull_request → main: deploy CALOPTIMA_DW (stable) + dev + qa + prod (full gate)
+# workflow_dispatch:   manual deploy CALOPTIMA_DW_DEV + dev build
+#
+# Two-project isolation:
+#   CALOPTIMA_DW_DEV  ← dev branch code  → DBT_REFRESH_TASK_DEV → FACETS_DEV
+#   CALOPTIMA_DW      ← main branch code → DBT_REFRESH_TASK_QA/PROD → FACETS_QA/PROD
 
 on:
   push:
@@ -16,15 +20,15 @@ on:
   workflow_dispatch:
 
 # Cancel any in-progress run for the same ref when a new push arrives.
-# Prevents stale deploys queueing up when you push repeatedly.
 concurrency:
   group: dbt-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ─── Job 1: always runs (push, PR, or manual) ────────────────────────────────
+  # ─── Job 1: always runs (push → dev, PR → main, manual) ─────────────────────
+  # Deploys and validates the dev project object (CALOPTIMA_DW_DEV).
   deploy-and-dev:
-    name: Deploy + dbt build (dev)
+    name: Deploy CALOPTIMA_DW_DEV + dbt build (dev)
     runs-on: ubuntu-latest
 
     steps:
@@ -45,22 +49,23 @@ jobs:
           EOF
           chmod 0600 ~/.snowflake/config.toml
 
-      - name: Deploy dbt project to Snowflake
+      - name: Deploy dbt project — dev object (CALOPTIMA_DW_DEV)
         run: |
           cd caloptima_dw && snow dbt deploy -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
-            caloptima_dw
+            caloptima_dw_dev
 
       - name: dbt build — dev (FACETS_DEV)
         run: |
           snow dbt execute -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
-            CALOPTIMA_DW build --target dev
+            CALOPTIMA_DW_DEV build --target dev
 
-  # ─── Job 2: PR to main only — qa + prod gate ─────────────────────────────────
-  qa-and-prod:
-    name: dbt build (qa + prod)
-    needs: deploy-and-dev
+  # ─── Job 2: PR to main only — deploys stable object + gates qa + prod ────────
+  # Independent job: deploys to CALOPTIMA_DW (stable/main) then runs qa + prod.
+  # Does NOT depend on Job 1 — the two jobs deploy to different project objects.
+  deploy-stable-qa-prod:
+    name: Deploy CALOPTIMA_DW + dbt build (qa + prod)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
@@ -81,6 +86,12 @@ jobs:
           warehouse = "WH_SMALL"
           EOF
           chmod 0600 ~/.snowflake/config.toml
+
+      - name: Deploy dbt project — stable object (CALOPTIMA_DW)
+        run: |
+          cd caloptima_dw && snow dbt deploy -c ci \
+            --database ANALYTICS_ADMIN --schema PROJECTS \
+            caloptima_dw
 
       - name: dbt build — qa (FACETS_QA)
         run: |

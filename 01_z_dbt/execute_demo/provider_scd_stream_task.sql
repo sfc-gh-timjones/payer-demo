@@ -157,6 +157,10 @@ BEGIN
     FROM FACETS_BRONZE.UTILS.PRPR_PROV_CHANGE_STREAM;
 
     -- Step A: Close the current (IS_CURRENT=TRUE) row for every changed/deleted provider
+    -- BUG FIX: use INSERT rows (not DELETE rows) to get the closing timestamp.
+    -- Openflow UPDATEs arrive as DELETE (old image, old _SNOWFLAKE_UPDATED_AT) +
+    -- INSERT (new image, new _SNOWFLAKE_UPDATED_AT). Using DELETE gave EFFECTIVE_TO
+    -- equal to EFFECTIVE_FROM (zero-duration). INSERT has the correct new timestamp.
     UPDATE FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM t
     SET
         EFFECTIVE_TO     = c._SNOWFLAKE_UPDATED_AT,
@@ -164,7 +168,7 @@ BEGIN
     FROM (
         SELECT DISTINCT PRPR_ID, _SNOWFLAKE_UPDATED_AT
         FROM TMP_PROVIDER_CHANGES
-        WHERE METADATA$ACTION = 'DELETE'
+        WHERE METADATA$ACTION = 'INSERT'
     ) c
     WHERE t.PRPR_ID     = c.PRPR_ID
       AND t.IS_CURRENT  = TRUE;

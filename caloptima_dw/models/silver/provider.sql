@@ -79,4 +79,16 @@ WHERE snap.dbt_updated_at > (
     SELECT COALESCE(MAX(dbt_updated_at), '1900-01-01'::TIMESTAMP_NTZ)
     FROM {{ this }}
 )
+-- Also include rows that were just closed by the snapshot (dbt_valid_to was set).
+-- The closed row's dbt_updated_at is its original source timestamp (old, won't
+-- pass the filter above), but dbt_valid_to = new timestamp. Without this, the
+-- old row in silver.provider keeps dbt_valid_to=NULL (looks current) even after
+-- the snapshot closes it — causing assert_one_current_row_per_provider to fail.
+OR (
+    snap.dbt_valid_to IS NOT NULL
+    AND snap.dbt_valid_to > (
+        SELECT COALESCE(MAX(dbt_updated_at), '1900-01-01'::TIMESTAMP_NTZ)
+        FROM {{ this }}
+    )
+)
 {% endif %}

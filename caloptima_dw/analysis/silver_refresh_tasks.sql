@@ -27,8 +27,8 @@ USE WAREHOUSE WH_XS;
 
 CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV
     WAREHOUSE = WH_XS
-    AFTER     FACETS_BRONZE.UTILS.FACETS_INCREMENTAL_TASK
     COMMENT   = 'Runs dbt Silver + DQ models against FACETS_DEV after each CDC batch'
+    AFTER     FACETS_BRONZE.UTILS.FACETS_INCREMENTAL_TASK
 AS
     EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
         ARGS = 'build --target dev --select provider_snapshot,provider,member,eligibility,rejected_providers,dup_metrics,dq_row_counts';
@@ -40,8 +40,8 @@ AS
 
 CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA
     WAREHOUSE = WH_XS
-    AFTER     FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV
     COMMENT   = 'Runs dbt Silver + DQ models against FACETS_QA after DEV refresh completes'
+    AFTER     FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV
 AS
     EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
         ARGS = 'build --target qa --select provider_snapshot,provider,member,eligibility,rejected_providers,dup_metrics,dq_row_counts';
@@ -53,8 +53,8 @@ AS
 
 CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD
     WAREHOUSE = WH_XS
-    AFTER     FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA
     COMMENT   = 'Runs dbt Silver + DQ models against FACETS_PROD after QA refresh completes'
+    AFTER     FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA
 AS
     EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
         ARGS = 'build --target prod --select provider_snapshot,provider,member,eligibility,rejected_providers,dup_metrics,dq_row_counts';

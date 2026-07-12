@@ -93,16 +93,8 @@ SELECT COUNT(*) AS visible_members FROM SILVER.MEMBER;
 -- → Error: "Database 'ZFACETS_DEV_CLONE' does not exist or not authorized."
 -- Talking point: zero lag. No session invalidation. Re-checked on every query.
 
--- Restore for next demo run
-USE ROLE ACCOUNTADMIN;
-
-GRANT USAGE ON DATABASE zFACETS_DEV_CLONE              TO ROLE BUSINESS_ANALYST_ROLE;
-GRANT USAGE ON SCHEMA zFACETS_DEV_CLONE.SILVER         TO ROLE BUSINESS_ANALYST_ROLE;
-GRANT SELECT ON TABLE zFACETS_DEV_CLONE.SILVER.MEMBER  TO ROLE BUSINESS_ANALYST_ROLE;
-
-USE ROLE BUSINESS_ANALYST_ROLE;
-SELECT COUNT(*) AS visible_members FROM zFACETS_DEV_CLONE.SILVER.MEMBER;
--- Expected: ~30,593 — access restored instantly
+-- ⚠ After this demo: run execute_pre_demo/restore_ba_access.sql to restore access
+--   before the next session.
 
 
 -- =============================================================================

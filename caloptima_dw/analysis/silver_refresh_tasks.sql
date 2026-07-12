@@ -66,9 +66,9 @@ AS
 -- Resume all tasks (parent FACETS_INCREMENTAL_TASK must also be resumed)
 -- =============================================================================
 
--- ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV  RESUME;
--- ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA   RESUME;
--- ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD RESUME;
+ ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV  RESUME;
+ ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA   RESUME;
+ ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD RESUME;
 
 
 -- =============================================================================

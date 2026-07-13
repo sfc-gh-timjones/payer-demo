@@ -162,6 +162,14 @@ ALTER TABLE SILVER.MEMBER
   ADD DATA METRIC FUNCTION DQ_POLICIES.MEDICAID_MISSING_BIC_COUNT
   ON (MEME_MCTR_TYPE, MECD_BIC);
 
+-- 10. Schema: schema change count (detects column add/drop/rename/type changes — ties into Openflow schema drift demo)
+ALTER TABLE SILVER.MEMBER
+  ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.SCHEMA_CHANGE_COUNT ON ();
+
+-- 11. Statistics: median duplicate count per member
+ALTER TABLE SILVER.MEMBER
+  ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.MEDIAN ON (DUPLICATE_COUNT);
+
 /* ============================================================================
    SECTION G: Expectations (pass/fail thresholds per DMF)
    Syntax: MODIFY DATA METRIC FUNCTION ... ADD EXPECTATION name (expression)
@@ -217,6 +225,16 @@ ALTER TABLE SILVER.MEMBER
   MODIFY DATA METRIC FUNCTION DQ_POLICIES.MEDICAID_MISSING_BIC_COUNT
   ON (MEME_MCTR_TYPE, MECD_BIC)
   ADD EXPECTATION no_medicaid_missing_bic (VALUE = 0);
+
+-- Schema: zero unexpected schema changes (flags Openflow column drift)
+ALTER TABLE SILVER.MEMBER
+  MODIFY DATA METRIC FUNCTION SNOWFLAKE.CORE.SCHEMA_CHANGE_COUNT ON ()
+  ADD EXPECTATION no_schema_changes (VALUE = 0);
+
+-- Statistics: median duplicate count should be zero
+ALTER TABLE SILVER.MEMBER
+  MODIFY DATA METRIC FUNCTION SNOWFLAKE.CORE.MEDIAN ON (DUPLICATE_COUNT)
+  ADD EXPECTATION low_median_duplicates (VALUE = 0);
 
 /* ============================================================================
    SECTION H: Data quality alert

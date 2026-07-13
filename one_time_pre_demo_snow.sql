@@ -94,4 +94,4 @@ EXECUTE IMMEDIATE FROM
     01_openflow/execute_pre_demo/01_OF_schema_revert_mssql.sql
 =============================================================================*/
 
-SELECT 'CalOptima demo environment reset and ready.' AS status;
+SELECT 'CalOptima demo environment reset and ready. Now go run the SQL Server cleanup script.' AS status;

@@ -30,7 +30,7 @@ CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV
     COMMENT   = 'Runs dbt Silver + DQ models against FACETS_DEV using dev branch code (CALOPTIMA_DW_DEV)'
 AS
     EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW_DEV
-        ARGS = 'build --target dev --select provider_snapshot,provider,member,eligibility,rejected_providers,dup_metrics,dq_row_counts';
+        ARGS = 'build --target dev --select provider_snapshot provider member eligibility rejected_providers dup_metrics dq_row_counts';
 
 -- =============================================================================
 -- DBT_REFRESH_TASK_QA — uses CALOPTIMA_DW (stable/main branch code)
@@ -41,7 +41,7 @@ CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA
     COMMENT   = 'Runs dbt Silver + DQ models against FACETS_QA using stable main branch code (CALOPTIMA_DW)'
 AS
     EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
-        ARGS = 'build --target qa --select provider_snapshot,provider,member,eligibility,rejected_providers,dup_metrics,dq_row_counts';
+        ARGS = 'build --target qa --select provider_snapshot provider member eligibility rejected_providers dup_metrics dq_row_counts';
 
 -- =============================================================================
 -- DBT_REFRESH_TASK_PROD — uses CALOPTIMA_DW (stable/main branch code)
@@ -52,7 +52,7 @@ CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD
     COMMENT   = 'Runs dbt Silver + DQ models against FACETS_PROD using stable main branch code (CALOPTIMA_DW)'
 AS
     EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
-        ARGS = 'build --target prod --select provider_snapshot,provider,member,eligibility,rejected_providers,dup_metrics,dq_row_counts';
+        ARGS = 'build --target prod --select provider_snapshot provider member eligibility rejected_providers dup_metrics dq_row_counts';
 
 -- Gold models are views — they rebuild on query, no task execution needed.
 

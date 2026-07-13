@@ -48,7 +48,7 @@ INFER SCHEMA & SCHEMA EVOLUTION
     3. EVOLVE SCHEMA or OWNERSHIP privilege on the table
 ************************************************************************/
 
--- Infer Schema: inspect detected column names and data types
+/* Infer Schema: inspect detected column names and data types
 SELECT *
 FROM TABLE(
     INFER_SCHEMA(
@@ -57,6 +57,7 @@ FROM TABLE(
     , FILES => ('pharmacy_claims.csv')
     )
 );
+*/
 
 -- Create table automatically from the inferred schema
 CREATE OR REPLACE TABLE pharmacy_claims
@@ -99,7 +100,7 @@ FILE_FORMAT = (
 )
 VALIDATION_MODE = 'RETURN_ERRORS';
 
--- ON_ERROR = ABORT_STATEMENT: load stops immediately on the first bad row
+/* ON_ERROR = ABORT_STATEMENT: load stops immediately on the first bad row
 COPY INTO pharmacy_claims
 FROM @MY_STAGE/ingest_demo/csv_example/
 FILES = ('pharmacy_claims_bad_records.csv')
@@ -109,6 +110,7 @@ FILE_FORMAT = (
   FIELD_OPTIONALLY_ENCLOSED_BY = '"'
 )
 ON_ERROR = 'ABORT_STATEMENT';
+*/
 
 -- ON_ERROR = CONTINUE: skip bad rows and load everything else
 COPY INTO pharmacy_claims
@@ -192,12 +194,13 @@ FROM pharmacy_claims
 WHERE REFILL_NUMBER IS NOT NULL
 LIMIT 20;
 
--- Step 5: Count rows by batch origin
+/* Step 5: Count rows by batch origin
 SELECT
     CASE WHEN REFILL_NUMBER IS NULL THEN 'Before evolution' ELSE 'After evolution' END AS batch,
     COUNT(*) AS row_count
 FROM pharmacy_claims
 GROUP BY 1;
+*/
 
 /***********************************************************************
   XML LOADING  

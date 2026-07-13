@@ -94,6 +94,17 @@ $$
     AND bic IS NULL
 $$;
 
+CREATE OR REPLACE DATA METRIC FUNCTION median_birth_year(
+  arg_t TABLE(dob DATE)
+)
+RETURNS NUMBER
+COMMENT = 'Median birth year of members — proxy for population age distribution'
+AS
+$$
+  SELECT MEDIAN(YEAR(dob))
+  FROM arg_t
+$$;
+
 /* ============================================================================
    SECTION E: Per-table monitoring schedule (TRIGGER_ON_CHANGES)
    DMFs re-run automatically whenever rows are inserted, updated, or deleted.
@@ -166,9 +177,9 @@ ALTER TABLE SILVER.MEMBER
 ALTER TABLE SILVER.MEMBER
   ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.SCHEMA_CHANGE_COUNT ON ();
 
--- 11. Statistics: median duplicate count per member
+-- 11. Statistics: median member birth year (proxy for population age distribution)
 ALTER TABLE SILVER.MEMBER
-  ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.MEDIAN ON (DUPLICATE_COUNT);
+  ADD DATA METRIC FUNCTION DQ_POLICIES.MEDIAN_BIRTH_YEAR ON (MEME_DOB);
 
 /* ============================================================================
    SECTION G: Expectations (pass/fail thresholds per DMF)
@@ -231,10 +242,10 @@ ALTER TABLE SILVER.MEMBER
   MODIFY DATA METRIC FUNCTION SNOWFLAKE.CORE.SCHEMA_CHANGE_COUNT ON ()
   ADD EXPECTATION no_schema_changes (VALUE = 0);
 
--- Statistics: median duplicate count should be zero
+-- Statistics: median birth year should fall within a plausible member population range
 ALTER TABLE SILVER.MEMBER
-  MODIFY DATA METRIC FUNCTION SNOWFLAKE.CORE.MEDIAN ON (DUPLICATE_COUNT)
-  ADD EXPECTATION low_median_duplicates (VALUE = 0);
+  MODIFY DATA METRIC FUNCTION DQ_POLICIES.MEDIAN_BIRTH_YEAR ON (MEME_DOB)
+  ADD EXPECTATION median_birth_year_plausible (VALUE BETWEEN 1960 AND 2010);
 
 /* ============================================================================
    SECTION H: Data quality alert

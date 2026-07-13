@@ -144,14 +144,23 @@ LIMIT 10;
 --  which populations you can ACCESS at all."
 -- =============================================================================
 -- Show the row access policy mapping so the audience understands the logic
+/*
+
 USE ROLE ACCOUNTADMIN;
 
 SELECT * FROM GOVERNANCE_CA_DEMO.POLICY_STORE.ROW_POLICY_MAP
 ORDER BY ROLE, VISIBLE_PLAN_TYPE;
+
+*/
+
+/*
+
 -- Plan types:
 --   COMM    → Commercial managed care (CalOptima Access HMO/PPO)
 --   DSNP    → Dual Special Needs Plan (Medicare + Medi-Cal dual-eligible)
 --   MEDCAID → Medi-Cal / California Medicaid (heightened privacy — reveals low-income status)
+
+*/
 
 -- ── Switch role, then run the row count query below ───────────────────────────
 --USE ROLE ACCOUNTADMIN;

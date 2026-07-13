@@ -21,3 +21,37 @@ DROP TABLE IF EXISTS FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE;
 
 -- Confirm it's gone
 SHOW TABLES LIKE 'CMC_PRTP_PROV_TYPE' IN SCHEMA FACETS_BRONZE.RAW;
+
+-- =============================================================================
+-- Drop Openflow journal tables for CMC_PRTP_PROV_TYPE
+-- Journal tables accumulate with unpredictable suffixes each Openflow run,
+-- e.g. CMC_PRTP_PROV_TYPE_JOURNAL_1783717081_1
+--      CMC_PRTP_PROV_TYPE_JOURNAL_1783968863_1
+-- The stored procedure below finds them all dynamically via INFORMATION_SCHEMA
+-- and drops them. Run the preview SELECT first to confirm what will be dropped.
+-- =============================================================================
+
+-- Preview: see which journal tables exist before dropping
+SELECT TABLE_NAME,
+       CREATED,
+       LAST_ALTERED
+FROM FACETS_BRONZE.INFORMATION_SCHEMA.TABLES
+WHERE TABLE_SCHEMA = 'RAW'
+  AND TABLE_NAME LIKE 'CMC_PRTP_PROV_TYPE_JOURNAL%'
+ORDER BY TABLE_NAME;
+
+-- Execute: drop all matching journal tables dynamically
+DECLARE
+    drop_stmt VARCHAR;
+BEGIN
+    FOR rec IN (
+        SELECT TABLE_NAME
+        FROM FACETS_BRONZE.INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = 'RAW'
+          AND TABLE_NAME LIKE 'CMC_PRTP_PROV_TYPE_JOURNAL%'
+    ) DO
+        drop_stmt := 'DROP TABLE IF EXISTS FACETS_BRONZE.RAW.' || rec.TABLE_NAME;
+        EXECUTE IMMEDIATE :drop_stmt;
+    END FOR;
+    RETURN 'Journal tables dropped.';
+END;

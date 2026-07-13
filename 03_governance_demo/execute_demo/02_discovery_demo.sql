@@ -112,10 +112,10 @@ ORDER BY
 -- └──────────────────────────┴─────────────┴──────────────┴───────────────────┴──────────────────┘
 
 -- ── Switch to the role you want, then run the query below ────────────────────
-USE ROLE ACCOUNTADMIN;
+--USE ROLE ACCOUNTADMIN;
 USE ROLE DATA_ENGINEER_ROLE;
 USE ROLE ANALYTICS_INNOVATOR_ROLE;
-USE ROLE BUSINESS_ANALYST_ROLE;
+--USE ROLE BUSINESS_ANALYST_ROLE;
 
 -- ── Same query every time — Snowflake applies masking based on current role ──
 SELECT
@@ -154,7 +154,7 @@ ORDER BY ROLE, VISIBLE_PLAN_TYPE;
 --   MEDCAID → Medi-Cal / California Medicaid (heightened privacy — reveals low-income status)
 
 -- ── Switch role, then run the row count query below ───────────────────────────
-USE ROLE ACCOUNTADMIN;
+--USE ROLE ACCOUNTADMIN;
 USE ROLE DATA_ENGINEER_ROLE;
 USE ROLE ANALYTICS_INNOVATOR_ROLE;
 USE ROLE BUSINESS_ANALYST_ROLE;

@@ -33,15 +33,15 @@ USE WAREHOUSE WH_XS;
      Points at the caloptima GitHub repo, branch: dev.
 =============================================================================*/
 
-CREATE DATABASE IF NOT EXISTS CALOPTIMA_DEPLOY;
-CREATE SCHEMA  IF NOT EXISTS CALOPTIMA_DEPLOY.GIT;
+CREATE DATABASE IF NOT EXISTS DEMO_DEPLOY;
+CREATE SCHEMA  IF NOT EXISTS DEMO_DEPLOY.GIT;
 
-CREATE OR REPLACE GIT REPOSITORY CALOPTIMA_DEPLOY.GIT.CALOPTIMA_REPO
+CREATE OR REPLACE GIT REPOSITORY DEMO_DEPLOY.GIT.CALOPTIMA_REPO
     API_INTEGRATION = GIT_HUB_INTEGRATION
     ORIGIN          = 'https://github.com/sfc-gh-timjones/caloptima';
 
 -- Pull latest commits from GitHub
-ALTER GIT REPOSITORY CALOPTIMA_DEPLOY.GIT.CALOPTIMA_REPO FETCH;
+ALTER GIT REPOSITORY DEMO_DEPLOY.GIT.CALOPTIMA_REPO FETCH;
 
 
 /*=============================================================================
@@ -52,7 +52,7 @@ ALTER GIT REPOSITORY CALOPTIMA_DEPLOY.GIT.CALOPTIMA_REPO FETCH;
 =============================================================================*/
 
 EXECUTE IMMEDIATE FROM
-    @CALOPTIMA_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/01_openflow/execute_pre_demo/00_OF_schema_revert_snow.sql;
+    @DEMO_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/01_openflow/execute_pre_demo/00_OF_schema_revert_snow.sql;
 
 
 /*=============================================================================
@@ -63,7 +63,7 @@ EXECUTE IMMEDIATE FROM
 =============================================================================*/
 
 EXECUTE IMMEDIATE FROM
-    @CALOPTIMA_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/02_data_quality/execute_pre_demo/01_reset_for_demo.sql;
+    @DEMO_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/02_data_quality/execute_pre_demo/01_reset_for_demo.sql;
 
 
 /*=============================================================================
@@ -72,7 +72,7 @@ EXECUTE IMMEDIATE FROM
 =============================================================================*/
 
 EXECUTE IMMEDIATE FROM
-    @CALOPTIMA_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/03_governance_demo/execute_pre_demo/01_restore_ba_access.sql;
+    @DEMO_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/03_governance_demo/execute_pre_demo/01_restore_ba_access.sql;
 
 
 /*=============================================================================

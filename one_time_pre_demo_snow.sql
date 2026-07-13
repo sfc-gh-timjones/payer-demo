@@ -65,16 +65,6 @@ EXECUTE IMMEDIATE FROM
     @DEMO_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/01_openflow/execute_pre_demo/00_OF_schema_revert_snow.sql;
 
 
-/*=============================================================================
-  3. DATA QUALITY — clean baseline reset
-     Removes dirty records from the previous run, seeds one inject/clean cycle
-     for DMF trend charts, then verifies all expectations pass.
-     Wait ~30 seconds after this completes for DMFs to evaluate before going live.
-=============================================================================*/
-
-EXECUTE IMMEDIATE FROM
-    @DEMO_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/02_data_quality/execute_pre_demo/01_reset_for_demo.sql;
-
 
 /*=============================================================================
   4. GOVERNANCE — restore Business Analyst role access

@@ -4,7 +4,7 @@ Use this guide to wipe and rebuild both SCD2 implementations from a clean baseli
 
 | Table | Approach | Targets |
 |---|---|---|
-| `SILVER.PROVIDER_SNAPSHOT` | dbt `snapshot --full-refresh` | FACETS_DEV, FACETS_QA, FACETS_PROD |
+| `SILVER.PROVIDER_SNAPSHOT` | DROP TABLE manually + `dbt snapshot` | FACETS_DEV, FACETS_QA, FACETS_PROD |
 | `FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM` | Drop + recreate stream + initial load | FACETS_DEV only |
 
 **Why reset both at the same time**: both tables source from `FACETS_BRONZE.RAW.CMC_PRPR_PROV`.
@@ -38,26 +38,29 @@ SHOW TASKS IN SCHEMA FACETS_BRONZE.UTILS;
 
 ## Step 2 — Reset the dbt snapshot (all three targets)
 
-`dbt snapshot --full-refresh` drops the snapshot table and rebuilds it from scratch.
-This works because `full_refresh=false` is **not** set in `provider_snapshot.sql` config.
+`dbt snapshot --full-refresh` does **not** exist in dbt v1.9 — the subcommand never accepted that flag.
+The only way to force a full rebuild is to drop the tables manually first, then run `dbt snapshot`.
 
-> **Note**: If `full_refresh=false` is ever added to the snapshot config, you must manually
-> `DROP TABLE FACETS_DEV.SILVER.PROVIDER_SNAPSHOT` (and QA/PROD) before running these.
-
-Run each statement and wait for it to complete before running the next.
+Drop all three snapshot tables, then rebuild each target in order.
+Wait for each `EXECUTE DBT PROJECT` to complete before running the next.
 
 ```sql
+-- Drop snapshot tables in all three databases
+DROP TABLE IF EXISTS FACETS_DEV.SILVER.PROVIDER_SNAPSHOT;
+DROP TABLE IF EXISTS FACETS_QA.SILVER.PROVIDER_SNAPSHOT;
+DROP TABLE IF EXISTS FACETS_PROD.SILVER.PROVIDER_SNAPSHOT;
+
 -- DEV target  →  FACETS_DEV.SILVER.PROVIDER_SNAPSHOT
 EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW_DEV
-    ARGS = 'snapshot --full-refresh --target dev --select provider_snapshot';
+    ARGS = 'snapshot --target dev --select provider_snapshot';
 
 -- QA target   →  FACETS_QA.SILVER.PROVIDER_SNAPSHOT
 EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
-    ARGS = 'snapshot --full-refresh --target qa --select provider_snapshot';
+    ARGS = 'snapshot --target qa --select provider_snapshot';
 
 -- PROD target →  FACETS_PROD.SILVER.PROVIDER_SNAPSHOT
 EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
-    ARGS = 'snapshot --full-refresh --target prod --select provider_snapshot';
+    ARGS = 'snapshot --target prod --select provider_snapshot';
 ```
 
 Verify each snapshot rebuilt cleanly (all rows should be current, no historical versions):
@@ -232,7 +235,7 @@ ORDER BY approach;
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `dbt snapshot --full-refresh` ignored | `full_refresh=false` added to config | Manually `DROP TABLE` first, then run snapshot |
+| `dbt snapshot --full-refresh` error | Flag does not exist in dbt v1.9 | Use `DROP TABLE` first, then `dbt snapshot` (no flag) |
 | Stream still has data after recreate | Ran initial load before recreating stream | Redo Steps 3→4 in order |
 | Task fires but snapshot not updating | `--select` comma syntax bug | Verify task uses space-separated selectors (fixed Jul 13 2026) |
 | Both tables have different provider counts | Openflow wrote records between Steps 2 and 4 | Normal — next hourly dbt run will catch snapshot up |

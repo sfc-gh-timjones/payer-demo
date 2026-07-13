@@ -1,4 +1,9 @@
 /***************************************************************************************************
+
+BEFORE RUNNING: Need to go into Openflow and manually remove the below table from replication:
+FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE
+
+
 |  C | A | L | O | P | T | I | M | A  |  D  |  E  |  M  |  O  |
 
 One-click pre-demo reset! This script:
@@ -40,7 +45,7 @@ CREATE OR REPLACE GIT REPOSITORY DEMO_DEPLOY.GIT.CALOPTIMA_REPO
     API_INTEGRATION = GIT_HUB_INTEGRATION
     ORIGIN          = 'https://github.com/sfc-gh-timjones/caloptima';
 
--- Pull latest commits from GitHub
+-- Pull latest commits from GitHub (run this each time to get the newest scripts)
 ALTER GIT REPOSITORY DEMO_DEPLOY.GIT.CALOPTIMA_REPO FETCH;
 
 

@@ -18,7 +18,7 @@ One-click pre-demo reset! This script:
     03_governance_demo/execute_pre_demo/01_restore_ba_access.sql
 
   BEFORE RUNNING:
-    - Ensure GIT_HUB_INTEGRATION API integration exists (see 01_openflow/one_time_execute/github_actions_setup.sql)
+    - Ensure MY_GIT_API_INTEGRATION API integration and MY_GIT_SECRET credential exist
     - Run mssql pre-demo scripts separately in SQL Server first
     - Confirm Openflow connector is running and tables are current
 
@@ -42,7 +42,8 @@ CREATE DATABASE IF NOT EXISTS DEMO_DEPLOY;
 CREATE SCHEMA  IF NOT EXISTS DEMO_DEPLOY.GIT;
 
 CREATE OR REPLACE GIT REPOSITORY DEMO_DEPLOY.GIT.CALOPTIMA_REPO
-    API_INTEGRATION = GIT_HUB_INTEGRATION
+    API_INTEGRATION = MY_GIT_API_INTEGRATION
+    GIT_CREDENTIALS = POLICY_SETTINGS.POLICY_SCHEMA.MY_GIT_SECRET
     ORIGIN          = 'https://github.com/sfc-gh-timjones/caloptima';
 
 -- Pull latest commits from GitHub (run this each time to get the newest scripts)

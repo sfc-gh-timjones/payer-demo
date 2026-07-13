@@ -18,8 +18,8 @@ One-click pre-demo reset! This script:
 
   Files executed in order:
     01_openflow  /execute_pre_demo/00_OF_schema_revert_snow.sql
-    02_data_quality/execute_pre_demo/01_reset_for_demo.sql
-    03_governance_demo/execute_pre_demo/01_restore_ba_access.sql
+    03_data_quality/execute_pre_demo/01_reset_for_demo.sql
+    04_governance_demo/execute_pre_demo/01_restore_ba_access.sql
 
   BEFORE RUNNING:
     - Ensure MY_GIT_API_INTEGRATION API integration and MY_GIT_SECRET credential exist
@@ -72,7 +72,7 @@ EXECUTE IMMEDIATE FROM
 =============================================================================*/
 
 EXECUTE IMMEDIATE FROM
-    @DEMO_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/03_governance_demo/execute_pre_demo/01_restore_ba_access.sql;
+    @DEMO_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/04_governance_demo/execute_pre_demo/01_restore_ba_access.sql;
 
 
 /*=============================================================================
@@ -80,9 +80,9 @@ EXECUTE IMMEDIATE FROM
 
   CalOptima demo environment is reset and ready. Run demo scripts in order:
     01_openflow/         Pillar 1: Openflow CDC / Schema Drift
-    02_data_quality/     Pillar 2: Data Quality (wait ~30s for DMF eval)
-    03_governance_demo/  Pillar 3: Governance / Security
-    04_performance_scale/ Pillar 4: Performance & Scale
+    02_performance_scale/ Pillar 2: Performance & Scale
+    03_data_quality/      Pillar 3: Data Quality (wait ~30s for DMF eval)
+    04_governance_demo/   Pillar 4: Governance / Security
 
   mssql files NOT executed here — run these in SQL Server first:
     01_openflow/execute_pre_demo/01_OF_schema_revert_mssql.sql

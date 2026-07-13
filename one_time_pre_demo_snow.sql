@@ -1,7 +1,11 @@
 /***************************************************************************************************
 
-BEFORE RUNNING: Need to go into Openflow and manually remove the below table from replication:
+BEFORE RUNNING: 
+
+Need to go into Openflow and manually remove the below table from replication:
 FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE
+
+DELETE JOURNAL TABLES FOR CMC_PRTP_PROV_TYPE
 
 
 |  C | A | L | O | P | T | I | M | A  |  D  |  E  |  M  |  O  |
@@ -41,7 +45,7 @@ USE WAREHOUSE WH_XS;
 CREATE DATABASE IF NOT EXISTS DEMO_DEPLOY;
 CREATE SCHEMA  IF NOT EXISTS DEMO_DEPLOY.GIT;
 
-CREATE OR REPLACE GIT REPOSITORY DEMO_DEPLOY.GIT.CALOPTIMA_REPO
+CREATE GIT REPOSITORY IF NOT EXISTS DEMO_DEPLOY.GIT.CALOPTIMA_REPO
     API_INTEGRATION = MY_GIT_API_INTEGRATION
     GIT_CREDENTIALS = POLICY_SETTINGS.POLICY_SCHEMA.MY_GIT_SECRET
     ORIGIN          = 'https://github.com/sfc-gh-timjones/caloptima';

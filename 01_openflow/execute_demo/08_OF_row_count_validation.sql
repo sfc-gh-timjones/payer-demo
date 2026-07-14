@@ -1,3 +1,58 @@
+
+-- =============================================================================
+-- Run the validation
+-- =============================================================================
+CALL FACETS_BRONZE.UTILS.FACETS_ROW_COUNT_VALIDATION(
+    'tjonessqlserver.database.windows.net',
+    'openflow'
+);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 -- =============================================================================
 -- FILE: 07_row_count_validation.sql
 -- PURPOSE: Compare row counts between Azure SQL Server (source) and

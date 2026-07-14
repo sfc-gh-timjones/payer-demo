@@ -36,9 +36,7 @@ ALTER GIT REPOSITORY DEMO_DEPLOY.GIT.CALOPTIMA_REPO FETCH;
 
 /*=============================================================================
   2. OPENFLOW — schema revert (Snowflake side)
-     Drops CMC_PRTP_PROV_TYPE so Openflow can re-onboard it cleanly.
-     NOTE: Run the matching mssql script in SQL Server BEFORE re-adding the
-     table to Openflow replication.
+     Drops CMC_PRTP_PROV_TYPE and JOURNAL tables. 
 =============================================================================*/
 
 EXECUTE IMMEDIATE FROM
@@ -57,15 +55,22 @@ EXECUTE IMMEDIATE FROM
 
 /*=============================================================================
   DONE!
-
-  CalOptima demo environment is reset and ready. Run demo scripts in order:
-    01_openflow/         Pillar 1: Openflow CDC / Schema Drift
-    02_performance_scale/ Pillar 2: Performance & Scale
-    03_data_quality/      Pillar 3: Data Quality (wait ~30s for DMF eval)
-    04_governance_demo/   Pillar 4: Governance / Security
-
-  mssql files NOT executed here — run these in SQL Server first:
-    01_openflow/execute_pre_demo/01_OF_schema_revert_mssql.sql
 =============================================================================*/
 
 SELECT 'CalOptima demo environment reset and ready. Now go run the SQL Server cleanup script.' AS status;
+
+
+/***************************************************************************************************
+
+OLD MANUAL WAY, BEFORE RUNNING: 
+
+Need to go into Openflow and manually remove the below table from replication:
+FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE
+
+MANUALLY DELETE JOURNAL TABLES FOR CMC_PRTP_PROV_TYPE
+
+Run silver/provider_office_hours with correct code manually as a full load (IMPORTANT)
+
+Make sure error is introduced into the silver/provider_office_hours model and DEPLOYED to Dbt Project object BUT NOT RUN (you will run during demo).
+
+***************************************************************************************************/

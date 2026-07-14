@@ -52,7 +52,7 @@ EXECUTE IMMEDIATE FROM
 =============================================================================*/
 
 EXECUTE IMMEDIATE FROM
-    @DEMO_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/04_governance_demo/execute_pre_demo/01_restore_ba_access.sql;
+    @DEMO_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/06_governance_demo/execute_pre_demo/01_restore_ba_access.sql;
 
 
 /*=============================================================================

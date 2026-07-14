@@ -5,32 +5,12 @@ BEFORE RUNNING:
 Need to go into Openflow and manually remove the below table from replication:
 FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE
 
-DELETE JOURNAL TABLES FOR CMC_PRTP_PROV_TYPE
+MANUALLY DELETE JOURNAL TABLES FOR CMC_PRTP_PROV_TYPE
 
+Run silver/provider_office_hours with correct code manually as a full load (IMPORTANT)
 
-|  C | A | L | O | P | T | I | M | A  |  D  |  E  |  M  |  O  |
+Make sure error is introduced into the silver/provider_office_hours model and DEPLOYED to Dbt Project object BUT NOT RUN (you will run during demo).
 
-One-click pre-demo reset! This script:
-    1. Creates a temporary deploy database + git repo pointer
-    2. Fetches the latest code from the caloptima GitHub repo
-    3. Runs all execute_pre_demo scripts in folder order via EXECUTE IMMEDIATE FROM
-       (mssql files are excluded — run those separately in SQL Server)
-
-  Files executed in order:
-    01_openflow  /execute_pre_demo/00_OF_schema_revert_snow.sql
-    03_data_quality/execute_pre_demo/01_reset_for_demo.sql
-    04_governance_demo/execute_pre_demo/01_restore_ba_access.sql
-
-  BEFORE RUNNING:
-    - Ensure MY_GIT_API_INTEGRATION API integration and MY_GIT_SECRET credential exist
-    - Run mssql pre-demo scripts separately in SQL Server first
-    - Confirm Openflow connector is running and tables are current
-
-  AFTER THIS COMPLETES:
-    - Schema drift table (CMC_PRTP_PROV_TYPE) is dropped + ready for re-onboarding
-    - Data quality baseline is clean (dirty records removed, one inject/clean cycle run)
-    - Business Analyst role access is restored after any REVOKE demos
-    - Run demo scripts in each folder in order
 ***************************************************************************************************/
 
 USE ROLE      ACCOUNTADMIN;

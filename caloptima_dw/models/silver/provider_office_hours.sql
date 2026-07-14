@@ -21,11 +21,15 @@ FROM {{ ref('stg_prof_off_hrs') }}
 
 {% if is_incremental() %}
 WHERE
+
     -- ✅ CORRECT — comment out for bad code demo:
     _SNOWFLAKE_UPDATED_AT > (
         SELECT COALESCE(MAX(BRONZE_UPDATED_AT), '1900-01-01'::TIMESTAMP_NTZ)
         FROM {{ this }}
     )
+
+/*
     -- 🔴 BAD CODE — uncomment + comment out correct filter above:
-    -- PROF_ID % 2 = 0
+    PROF_ID % 2 = 0
+*/
 {% endif %}

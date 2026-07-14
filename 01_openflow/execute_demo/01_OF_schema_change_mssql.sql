@@ -61,7 +61,26 @@ VALUES
 GO
 
 -- =============================================================================
--- STEP 4: Confirm final state
+-- STEP 4: DML changes on existing seeded rows (PRTP_ID 1–15)
 -- =============================================================================
 
-SELECT * FROM raw.CMC_PRTP_PROV_TYPE;  -- expect 20
+-- UPDATE: PRTP_ID 7 — rename to reflect rehabilitation services CalOptima covers
+UPDATE raw.CMC_PRTP_PROV_TYPE
+SET    PRTP_DESC = 'Skilled Nursing & Rehabilitation Facility'
+WHERE  PRTP_ID = 7;
+
+SELECT @@ROWCOUNT AS rows_updated;  -- expect 1
+GO
+
+-- DELETE: PRTP_ID 2 (DO - Doctor of Osteopathy) — consolidated into MD category
+DELETE FROM raw.CMC_PRTP_PROV_TYPE
+WHERE  PRTP_ID = 2;
+
+SELECT @@ROWCOUNT AS rows_deleted;  -- expect 1
+GO
+
+-- =============================================================================
+-- STEP 5: Confirm final state
+-- =============================================================================
+
+SELECT * FROM raw.CMC_PRTP_PROV_TYPE ORDER BY PRTP_ID;  -- expect 19 rows (20 - 1 delete)

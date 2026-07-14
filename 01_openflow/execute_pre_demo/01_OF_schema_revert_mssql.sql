@@ -34,7 +34,28 @@ SELECT * FROM raw.CMC_PRTP_PROV_TYPE WHERE PRTP_ID >= 9001 ORDER BY PRTP_ID;
 GO
 
 -- =============================================================================
--- STEP 2: Delete the 5 demo rows
+-- STEP 2: Revert DML changes on seeded rows
+-- =============================================================================
+
+-- Restore PRTP_ID 7 description
+UPDATE raw.CMC_PRTP_PROV_TYPE
+SET    PRTP_DESC = 'Skilled Nursing Facility'
+WHERE  PRTP_ID = 7;
+
+SELECT @@ROWCOUNT AS rows_updated;  -- expect 1
+GO
+
+-- Re-insert PRTP_ID 2 (DO - Doctor of Osteopathy) that was deleted in the demo
+INSERT INTO raw.CMC_PRTP_PROV_TYPE
+    (PRTP_ID, PRTP_CODE, PRTP_DESC, PRTP_CATEGORY, PRTP_ACTIVE_FLAG, PRTP_SORT_ORDER)
+VALUES
+    (2, 'DO', 'Doctor of Osteopathy', 'Physician', 'Y', 2);
+
+SELECT @@ROWCOUNT AS rows_inserted;  -- expect 1
+GO
+
+-- =============================================================================
+-- STEP 3: Delete the 5 new demo rows (PRTP_IDs 9001–9005)
 -- =============================================================================
 
 DELETE FROM raw.CMC_PRTP_PROV_TYPE
@@ -44,7 +65,7 @@ SELECT @@ROWCOUNT AS rows_deleted;  -- expect 5
 GO
 
 -- =============================================================================
--- STEP 3: Revert schema changes
+-- STEP 4: Revert schema changes
 --   a) Drop PRTP_EFFECTIVE_DT column
 --   b) Narrow PRTP_DESC back to VARCHAR(100)
 -- =============================================================================
@@ -58,7 +79,7 @@ ALTER TABLE raw.CMC_PRTP_PROV_TYPE
 GO
 
 -- =============================================================================
--- STEP 4: Confirm restored state
+-- STEP 5: Confirm restored state
 -- =============================================================================
 
 SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE
@@ -67,4 +88,5 @@ WHERE TABLE_SCHEMA = 'raw' AND TABLE_NAME = 'CMC_PRTP_PROV_TYPE'
 ORDER BY ORDINAL_POSITION;
 
 SELECT COUNT(*) AS total_rows FROM raw.CMC_PRTP_PROV_TYPE;  -- expect 15
+SELECT * FROM raw.CMC_PRTP_PROV_TYPE WHERE PRTP_ID IN (2, 7) ORDER BY PRTP_ID;  -- confirm restored
 GO

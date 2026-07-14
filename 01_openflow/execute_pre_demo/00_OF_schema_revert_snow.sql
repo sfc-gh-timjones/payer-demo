@@ -1,7 +1,11 @@
 -- =============================================================================
 -- FILE: 06.4_schema_revert_snow.sql
 -- PURPOSE: Reset CMC_PRTP_PROV_TYPE in Snowflake after the schema drift demo.
---          Drop the Bronze table, then re-add it to Openflow replication.
+--          Dropping the Bronze table reverts all three change types at once:
+--            • 5 new rows (PRTP_ID 9001-9005) with PRTP_EFFECTIVE_DT
+--            • Updated row (PRTP_ID 7: description change)
+--            • Soft-deleted row (PRTP_ID 2: _SNOWFLAKE_DELETED = TRUE)
+--          After drop, re-adding to Openflow triggers a clean full reload.
 --
 -- WORKFLOW:
 -- SNOWFLAKE FIRST

@@ -1,8 +1,5 @@
 -- =============================================================================
 -- FILE: 03_multi_cluster_concurrency.sql
--- PURPOSE: CalOptima RFP 26-038 | Performance — High Concurrency / Multi-Cluster
---          Simulates N concurrent users via Snowflake Tasks (genuinely async).
---          Shows auto scale-out and scale-in via WAREHOUSE_EVENTS_HISTORY.
 --
 -- DATA: SNOWFLAKE_SAMPLE_DATA.TPCH_SF100 (600M rows)
 -- =============================================================================
@@ -11,7 +8,6 @@ USE ROLE ACCOUNTADMIN;
 USE SECONDARY ROLES NONE;
 USE DATABASE SNOWFLAKE_SAMPLE_DATA2;
 USE SCHEMA TPCH_SF100;
-
 
 -- =============================================================================
 -- PART 1: CREATE THE MULTI-CLUSTER WAREHOUSE
@@ -37,11 +33,6 @@ SHOW WAREHOUSES LIKE 'CALOPTIMA_CONCURRENCY_WH';
 
 -- =============================================================================
 -- PART 2: FIRE CONCURRENT LOAD
---
--- Tasks and procedures are pre-created in 03_setup.sql.
--- spawn_concurrent_users now only calls EXECUTE TASK × N (~15 sec vs ~1 min).
--- You can re-run this call after a batch finishes — tasks stay RESUMED and
--- fire again cleanly on each EXECUTE TASK call.
 -- =============================================================================
 
 -- ── Fire concurrent load ──────────────────────────────────────────────────────
@@ -51,63 +42,3 @@ SHOW PARAMETERS LIKE 'USE_CACHED_RESULT';
 CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(100);
 
 SHOW WAREHOUSES LIKE 'CALOPTIMA_CONCURRENCY_WH';
--- =============================================================================
--- PART 3: SHOW SCALE-OUT EVENTS
--- Note: WAREHOUSE_EVENTS_HISTORY has ~2-min ingestion lag.
--- =============================================================================
-
-SELECT
-    TIMESTAMP,
-    WAREHOUSE_NAME,
-    CLUSTER_NUMBER,
-    EVENT_NAME,
-    EVENT_REASON,
-    EVENT_STATE
-FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_EVENTS_HISTORY
-WHERE WAREHOUSE_NAME = 'CALOPTIMA_CONCURRENCY_WH'
-  AND TIMESTAMP > DATEADD('hour', -1, CURRENT_TIMESTAMP())
-ORDER BY TIMESTAMP;
--- Look for:
---   SCALE_OUT events: Cluster 2 and 3 coming online as queue builds
---   SCALE_IN events:  Clusters suspending after load clears
--- Talking point: zero manual intervention.
--- Snowflake detected the queue, provisioned extra clusters, released them.
-
-
--- =============================================================================
--- PART 4: QUERY DISTRIBUTION ACROSS CLUSTERS
--- "Every user got immediate compute. No one sat in a queue."
--- =============================================================================
-
-SELECT
-    USER_NAME,
-    WAREHOUSE_NAME,
-    WAREHOUSE_SIZE,
-    CLUSTER_NUMBER,
-    COUNT(*)                                     AS queries_handled,
-    ROUND(AVG(TOTAL_ELAPSED_TIME) / 1000, 1)     AS avg_elapsed_sec,
-    ROUND(MIN(TOTAL_ELAPSED_TIME) / 1000, 1)     AS min_elapsed_sec,
-    ROUND(MAX(TOTAL_ELAPSED_TIME) / 1000, 1)     AS max_elapsed_sec
-FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
-WHERE WAREHOUSE_NAME = 'CALOPTIMA_CONCURRENCY_WH'
-  AND START_TIME > DATEADD('hour', -1, CURRENT_TIMESTAMP())
-  AND QUERY_TEXT ILIKE '%CALOPTIMA_CONCURRENCY_DEMO%'
-GROUP BY USER_NAME, WAREHOUSE_NAME, WAREHOUSE_SIZE, CLUSTER_NUMBER
-ORDER BY CLUSTER_NUMBER;
--- NOTE: Tasks execute as USER_NAME = 'SYSTEM', not your own user.
--- In Snowsight Query History, switch the filter from "My Queries" to
--- "All Users" to see these queries in the UI.
--- Expected: queries distributed across multiple cluster numbers.
--- Avg elapsed ~40-50 sec each — real compute, not cache hits.
-
-
--- =============================================================================
--- CLEANUP
--- =============================================================================
-
---CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(100);
---DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(INTEGER);
---DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(INTEGER);
---DROP WAREHOUSE IF EXISTS CALOPTIMA_CONCURRENCY_WH;
-
---SELECT 'Multi-cluster concurrency demo complete.' AS status;

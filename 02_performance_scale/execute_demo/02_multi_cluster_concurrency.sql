@@ -5,19 +5,6 @@
 --          Shows auto scale-out and scale-in via WAREHOUSE_EVENTS_HISTORY.
 --
 -- DATA: SNOWFLAKE_SAMPLE_DATA.TPCH_SF100 (600M rows)
---
--- WHY TASKS (NOT A LOOP):
---   EXECUTE TASK is asynchronous — it fires the task and returns immediately.
---   Calling it N times in sequence submits N concurrent executions to the
---   warehouse. A loop inside a stored procedure would serialize queries;
---   tasks run independently on the warehouse and trigger genuine concurrency.
---
--- DEMO FLOW:
---   1. Create multi-cluster warehouse (min=1, max=4)
---   2. Python stored procedure creates N tasks + fires them all concurrently
---   3. Show scale-out events (new clusters coming online)
---   4. Show query distribution across clusters
---   5. Cleanup
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -112,28 +99,6 @@ ORDER BY CLUSTER_NUMBER;
 -- "All Users" to see these queries in the UI.
 -- Expected: queries distributed across multiple cluster numbers.
 -- Avg elapsed ~40-50 sec each — real compute, not cache hits.
-
-
--- =============================================================================
--- PART 5: TASK EXECUTION HISTORY (available sooner than WAREHOUSE_EVENTS)
--- =============================================================================
-
-SELECT
-    NAME                  AS task_name,
-    STATE,
-    SCHEDULED_TIME,
-    QUERY_START_TIME,
-    COMPLETED_TIME,
-    DATEDIFF('second', QUERY_START_TIME, COMPLETED_TIME) AS elapsed_sec,
-    ERROR_MESSAGE
-FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY(
-    SCHEDULED_TIME_RANGE_START => DATEADD('hour', -1, CURRENT_TIMESTAMP()),
-    RESULT_LIMIT => 50
-))
-WHERE NAME ILIKE 'CONCURRENT_USER_%'
-ORDER BY SCHEDULED_TIME;
--- Shows all 12 tasks fired at roughly the same time — confirming true concurrency.
--- QUERY_START_TIME values will overlap, not be sequential.
 
 
 -- =============================================================================

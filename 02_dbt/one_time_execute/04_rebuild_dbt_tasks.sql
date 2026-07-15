@@ -17,6 +17,14 @@ USE ROLE      ACCOUNTADMIN;
 USE WAREHOUSE WH_XS;
 
 -- =============================================================================
+-- Suspend root stream tasks before modifying the DAG (Snowflake requirement)
+-- =============================================================================
+
+ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_DEV    SUSPEND;
+ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_QA     SUSPEND;
+ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_PROD   SUSPEND;
+
+-- =============================================================================
 -- Create tasks
 -- =============================================================================
 

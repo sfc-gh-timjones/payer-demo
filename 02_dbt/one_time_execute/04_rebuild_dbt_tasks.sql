@@ -23,8 +23,8 @@ USE WAREHOUSE WH_XS;
 -- DEV → FACETS_DEV (uses CALOPTIMA_DW_DEV — dev branch code)
 CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV
     WAREHOUSE = WH_XS
-    AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_DEV
     COMMENT   = 'Runs dbt build against FACETS_DEV using CALOPTIMA_DW_DEV project'
+    AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_DEV
 AS
     EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW_DEV
         ARGS = 'build --target dev --select provider_snapshot provider member eligibility rejected_providers dup_metrics dq_row_counts';
@@ -32,8 +32,8 @@ AS
 -- QA → FACETS_QA (uses CALOPTIMA_DW — stable/main code)
 CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA
     WAREHOUSE = WH_XS
-    AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_QA
     COMMENT   = 'Runs dbt build against FACETS_QA using CALOPTIMA_DW project'
+    AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_QA
 AS
     EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
         ARGS = 'build --target qa --select provider_snapshot provider member eligibility rejected_providers dup_metrics dq_row_counts';
@@ -41,8 +41,8 @@ AS
 -- PROD → FACETS_PROD (uses CALOPTIMA_DW — stable/main code)
 CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD
     WAREHOUSE = WH_XS
-    AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_PROD
     COMMENT   = 'Runs dbt build against FACETS_PROD using CALOPTIMA_DW project'
+    AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_PROD
 AS
     EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
         ARGS = 'build --target prod --select provider_snapshot provider member eligibility rejected_providers dup_metrics dq_row_counts';

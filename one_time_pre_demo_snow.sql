@@ -1,6 +1,6 @@
 /***************************************************************************************************
 
-BEFORE RUNNING: 
+BEFORE RUNNING: !!!IMPORTANT!!!!
 
 Need to go into Openflow and manually remove the below table from replication:
 FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE
@@ -94,4 +94,4 @@ EXECUTE IMMEDIATE FROM
   DONE!
 =============================================================================*/
 
-SELECT 'CalOptima demo environment reset and ready.' AS status;
+SELECT 'CalOptima demo environment reset and ready.' AS status, getdate() as last_run_time

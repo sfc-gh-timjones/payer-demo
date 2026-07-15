@@ -15,12 +15,15 @@
 -- PRTP_EFFECTIVE_DT absent before, present after schema change
 -- =============================================================================
 
+SELECT *
+FROM FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE
+WHERE _SNOWFLAKE_DELETED = FALSE;
+
+
 DESCRIBE TABLE FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE;
 
 -- =============================================================================
--- SECTION B: Spotlight — Updated row (PRTP_ID 7)
--- Before: 'Skilled Nursing Facility'
--- After:  'Skilled Nursing & Rehabilitation Facility'
+-- IMPLEMENT SCHEMA CHANGE 
 -- =============================================================================
 
 SELECT
@@ -32,7 +35,9 @@ SELECT
     _SNOWFLAKE_UPDATED_AT,
     _SNOWFLAKE_DELETED
 FROM FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE
-WHERE PRTP_ID = 7;
+WHERE 
+    _SNOWFLAKE_DELETED = FALSE 
+    AND PRTP_ID = 7;
 
 -- =============================================================================
 -- SECTION C: Spotlight — Deleted row (PRTP_ID 2)
@@ -47,23 +52,16 @@ SELECT
     _SNOWFLAKE_UPDATED_AT,
     _SNOWFLAKE_DELETED
 FROM FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE
-WHERE PRTP_ID = 2;
+WHERE 
+    _SNOWFLAKE_DELETED = FALSE 
+    AND PRTP_ID = 2;
 
 -- =============================================================================
 -- SECTION D: Full table — all rows including new schema column
 -- 19 active rows + 1 soft-deleted + 5 new inserts with PRTP_EFFECTIVE_DT
 -- =============================================================================
 
-SELECT
-    PRTP_ID,
-    PRTP_CODE,
-    PRTP_DESC,
-    PRTP_CATEGORY,
-    PRTP_ACTIVE_FLAG,
-    PRTP_SORT_ORDER,
-    PRTP_EFFECTIVE_DT,
-    _SNOWFLAKE_INSERTED_AT,
-    _SNOWFLAKE_UPDATED_AT,
-    _SNOWFLAKE_DELETED
+SELECT *
 FROM FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE
+WHERE _SNOWFLAKE_DELETED = FALSE 
 ORDER BY PRTP_ID;

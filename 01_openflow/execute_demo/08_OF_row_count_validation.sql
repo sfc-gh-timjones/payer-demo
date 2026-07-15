@@ -94,6 +94,7 @@ TABLES = [
     'CMC_MECB_COB', 'CMC_MERP_RELATION', 'CMC_MEIA_ID_ACT',
     'CMC_MCTR_CD_TRANS', 'CMC_MEPE_PRCS_ELIG', 'CMC_MEES_EXCHANGE',
     'CMC_MECD_MEDICAID', 'CMC_MESU_SUBSIDY',
+    'CMC_PRTP_PROV_TYPE',  # schema drift demo table — only present after demo Step 2
 ]
 
 

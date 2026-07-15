@@ -59,7 +59,7 @@ jobs:
         run: |
           snow dbt execute -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
-            CALOPTIMA_DW_DEV build --target dev
+            CALOPTIMA_DW_DEV build --target dev --exclude provider_office_hours
 
   # ─── Job 2: PR to main only — deploys stable object + gates qa + prod ────────
   # Independent job: deploys to CALOPTIMA_DW (stable/main) then runs qa + prod.

@@ -8,8 +8,8 @@ SELECT
     PROF_ID,
     PRPR_ID,
 
-    PROF_DAY_OF_WK,              -- ✅ CORRECT — comment out for bad code demo
-    -- 'BAD' AS PROF_DAY_OF_WK,  -- 🔴 BAD CODE — uncomment + comment out correct line above
+    -- PROF_DAY_OF_WK,              -- ✅ CORRECT — uncomment + comment out bad line below to fix
+    'BAD' AS PROF_DAY_OF_WK,        -- 🔴 BAD CODE — active for CI/CD rollback demo
 
     PROF_OPEN_TM,
     PROF_CLOSE_TM,
@@ -22,14 +22,15 @@ FROM {{ ref('stg_prof_off_hrs') }}
 {% if is_incremental() %}
 WHERE
 
-    -- ✅ CORRECT — comment out for bad code demo:
+/*
+    -- ✅ CORRECT — uncomment + comment out bad filter below to fix:
     _SNOWFLAKE_UPDATED_AT > (
         SELECT COALESCE(MAX(BRONZE_UPDATED_AT), '1900-01-01'::TIMESTAMP_NTZ)
         FROM {{ this }}
     )
-
-/*
-    -- 🔴 BAD CODE — uncomment + comment out correct filter above:
-    PROF_ID % 2 = 0
 */
+
+    -- 🔴 BAD CODE — active for CI/CD rollback demo:
+    PROF_ID % 2 = 0
+
 {% endif %}

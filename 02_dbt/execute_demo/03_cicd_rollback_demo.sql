@@ -15,7 +15,7 @@
         PROF_ID % 2 = 0                ← uncomment this
 
   Then commit to dev, open a PR to main, and let CI/CD deploy it.
-  When run incrementally, ~1,981 rows will be MERGEd with PROF_DAY_OF_WK = 'ERR'.
+  When run incrementally, ~1,981 rows will be MERGEd with PROF_DAY_OF_WK = 'BAD'.
 
   The table is never dropped (MERGE, not full refresh) so Time Travel is intact.
 
@@ -61,14 +61,14 @@ ORDER BY cnt DESC;
 --         (skip if damage is already present from a prior run)
 -- =============================================================================
 
-EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
+EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW_DEV
     ARGS = 'run --select provider_office_hours --target dev';
 
 -- Capture query ID IMMEDIATELY — before running anything else
 SET bad_run_id = LAST_QUERY_ID();
 SELECT $bad_run_id AS bad_run_query_id;
 
--- Confirm damage — ERR should now appear
+-- Confirm damage — BAD should now appear
 SELECT PROF_DAY_OF_WK, COUNT(*) AS cnt
 FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
 GROUP BY PROF_DAY_OF_WK
@@ -95,7 +95,7 @@ SELECT PROF_DAY_OF_WK, COUNT(*) AS cnt
 FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS_RESTORE
 GROUP BY PROF_DAY_OF_WK
 ORDER BY cnt DESC;
--- Should show MON/TUE/WED/THU/FRI/SAT/SUN with no ERR
+-- Should show MON/TUE/WED/THU/FRI/SAT/SUN with no BAD
 
 
 -- =============================================================================
@@ -116,7 +116,7 @@ SELECT PROF_DAY_OF_WK, COUNT(*) AS cnt
 FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
 GROUP BY PROF_DAY_OF_WK
 ORDER BY cnt DESC;
--- ERR is gone — MON/TUE/WED/THU/FRI/SAT/SUN back to normal
+-- BAD is gone — MON/TUE/WED/THU/FRI/SAT/SUN back to normal
 
 
 -- =============================================================================

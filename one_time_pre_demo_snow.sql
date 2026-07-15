@@ -5,11 +5,14 @@ BEFORE RUNNING:
 Need to go into Openflow and manually remove the below table from replication:
 FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE
 
-MANUALLY DELETE JOURNAL TABLES FOR CMC_PRTP_PROV_TYPE
+Run this script top-to-bottom. It handles:
+  - Openflow schema revert (Section 2)
+  - PROVIDER_OFFICE_HOURS clean rebuild (Section 3)  ← replaces the manual step
+  - Governance role restore (Section 4)
 
-Run silver/provider_office_hours with correct code manually as a full load (IMPORTANT)
-
-Make sure error is introduced into the silver/provider_office_hours model and DEPLOYED to Dbt Project object BUT NOT RUN (you will run during demo).
+BAD CODE IS ALREADY ACTIVE in provider_office_hours.sql (committed to dev).
+Section 3 rebuilds the Silver table with clean data so the demo starts from a
+baseline, then Step 2 of the demo runs the bad code incrementally.
 
 ***************************************************************************************************/
 
@@ -45,6 +48,17 @@ EXECUTE IMMEDIATE FROM
 
 
 /*=============================================================================
+  3. DBT — rebuild PROVIDER_OFFICE_HOURS with clean data
+     Bad code is deployed to CALOPTIMA_DW_DEV but NOT yet run.
+     This overwrites the Silver table directly so demo Step 1 shows clean data.
+     After demo Steps 3-6 (Time Travel + SWAP), the table is clean again automatically.
+=============================================================================*/
+
+EXECUTE IMMEDIATE FROM
+    @DEMO_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/02_dbt/execute_pre_demo/reset_office_hours_clean.sql;
+
+
+/*=============================================================================
   4. GOVERNANCE — restore Business Analyst role access
      Re-grants access revoked during the Part 2 REVOKE demo in 03_security_demo.
 =============================================================================*/
@@ -62,15 +76,14 @@ SELECT 'CalOptima demo environment reset and ready. Now go run the SQL Server cl
 
 /***************************************************************************************************
 
-OLD MANUAL WAY, BEFORE RUNNING: 
+DEMO-DAY SEQUENCE REMINDER:
 
-Need to go into Openflow and manually remove the below table from replication:
-FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE
-
-MANUALLY DELETE JOURNAL TABLES FOR CMC_PRTP_PROV_TYPE
-
-Run silver/provider_office_hours with correct code manually as a full load (IMPORTANT)
-
-Make sure error is introduced into the silver/provider_office_hours model and DEPLOYED to Dbt Project object BUT NOT RUN (you will run during demo).
+1. Bad code already committed to dev branch (provider_office_hours.sql).
+2. Push to dev triggers CI: deploys CALOPTIMA_DW_DEV (bad code), skips running provider_office_hours.
+3. Run this script LAST — after CI completes — so the Silver table starts clean.
+4. Demo Step 1: confirm clean data (all 7 days, no BAD).
+5. Demo Step 2: EXECUTE DBT PROJECT ... CALOPTIMA_DW_DEV — corrupts ~1,981 rows.
+6. Demo Steps 3-6: Time Travel clone → verify → SWAP atomically.
+7. After the SWAP, data is clean. Pre-reset needed again before the NEXT demo session.
 
 ***************************************************************************************************/

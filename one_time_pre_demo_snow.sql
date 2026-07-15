@@ -94,4 +94,38 @@ EXECUTE IMMEDIATE FROM
   DONE!
 =============================================================================*/
 
-SELECT 'CalOptima demo environment reset and ready.' AS status, getdate() as last_run_time
+SELECT 'CalOptima demo environment reset and ready.' AS status, getdate() as last_run_time;
+
+
+/*=============================================================================
+  VERIFY
+=============================================================================*/
+
+USE ROLE ACCOUNTADMIN;
+
+--Verify PROV_TYPE table is no longer in Snowflake
+SELECT *
+FROM FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE;
+
+--  VERIFY 1: PRTP journal tables wiped clean
+SELECT TABLE_NAME, ROW_COUNT
+FROM FACETS_BRONZE.INFORMATION_SCHEMA.TABLES
+WHERE TABLE_SCHEMA = 'RAW'
+  AND TABLE_NAME ILIKE 'CMC_PRTP_PROV_TYPE%JOURNAL%'
+ORDER BY TABLE_NAME;
+-- Expected: 0 rows (all journal tables dropped by Section 2)
+
+--Verify PROV_TYPE table is no longer in Snowflake. Should return zero results.
+SELECT *
+FROM FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE;
+
+--Verify office hours is clean.
+SELECT PROF_DAY_OF_WK, COUNT(*) AS cnt
+FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
+GROUP BY PROF_DAY_OF_WK
+ORDER BY cnt DESC;
+
+USE ROLE BUSINESS_ANALYST_ROLE
+-- VERIFY 2: Business Analyst role access restored
+SELECT *
+FROM ZFACETS_DEV_CLONE.SILVER.MEMBER;

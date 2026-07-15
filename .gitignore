@@ -17,6 +17,7 @@ output/
 *.png
 *.jpg
 *.jpeg
+*.pdf
 
 # OS / editor noise
 .DS_Store

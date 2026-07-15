@@ -8,6 +8,7 @@ facets_demo/
 caloptima_dw/target/
 caloptima_dw/dbt_packages/
 caloptima_dw/logs/
+caloptima_dw/static_index.html
 
 # Streamlit deploy artifacts
 output/

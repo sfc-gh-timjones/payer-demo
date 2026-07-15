@@ -23,6 +23,8 @@ GO
 -- STEP 1: Confirm current state before the change
 -- =============================================================================
 
+SELECT * FROM raw.CMC_PRTP_PROV_TYPE ORDER BY PRTP_ID;
+
 SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = 'raw' AND TABLE_NAME = 'CMC_PRTP_PROV_TYPE'

@@ -27,7 +27,6 @@ USE WAREHOUSE WH_XS;
 
 -- =============================================================================
 -- STEP 1: Enable change tracking on Bronze source table
---         Required for stream creation on non-standard tables
 -- =============================================================================
 
 ALTER TABLE FACETS_BRONZE.RAW.CMC_PRPR_PROV SET CHANGE_TRACKING = TRUE;
@@ -35,8 +34,6 @@ ALTER TABLE FACETS_BRONZE.RAW.CMC_PRPR_PROV SET CHANGE_TRACKING = TRUE;
 
 -- =============================================================================
 -- STEP 2: Create stream on Bronze CMC_PRPR_PROV
---         APPEND_ONLY = FALSE  → captures INSERT, UPDATE (as DELETE+INSERT pair), DELETE
---         SHOW_INITIAL_ROWS = FALSE → only changes AFTER stream creation
 -- =============================================================================
 
 CREATE OR REPLACE STREAM FACETS_BRONZE.UTILS.PRPR_PROV_CHANGE_STREAM
@@ -130,7 +127,7 @@ FROM FACETS_BRONZE.RAW.CMC_PRPR_PROV;
 --           b) Use INSERT rows to open new version (skip if _SNOWFLAKE_DELETED=TRUE)
 -- =============================================================================
 
-CREATE OR REPLACE PROCEDURE FACETS_DEV.SILVER.SP_PROVIDER_SCD2_STREAM_REFRESH()
+CREATE /*OR REPLACE*/ PROCEDURE FACETS_DEV.SILVER.SP_PROVIDER_SCD2_STREAM_REFRESH()
 RETURNS VARCHAR
 LANGUAGE SQL
 AS
@@ -157,10 +154,8 @@ BEGIN
     FROM FACETS_BRONZE.UTILS.PRPR_PROV_CHANGE_STREAM;
 
     -- Step A: Close the current (IS_CURRENT=TRUE) row for every changed/deleted provider
-    -- BUG FIX: use INSERT rows (not DELETE rows) to get the closing timestamp.
     -- Openflow UPDATEs arrive as DELETE (old image, old _SNOWFLAKE_UPDATED_AT) +
-    -- INSERT (new image, new _SNOWFLAKE_UPDATED_AT). Using DELETE gave EFFECTIVE_TO
-    -- equal to EFFECTIVE_FROM (zero-duration). INSERT has the correct new timestamp.
+    -- INSERT (new image, new _SNOWFLAKE_UPDATED_AT). 
     UPDATE FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM t
     SET
         EFFECTIVE_TO     = c._SNOWFLAKE_UPDATED_AT,
@@ -228,7 +223,7 @@ $$;
 --         Fires every 5 minutes ONLY when the stream has new data (no idle compute)
 -- =============================================================================
 
-CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK
+CREATE /*OR REPLACE TASK*/ FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK
     WAREHOUSE = WH_XS
     COMMENT   = 'SCD2 refresh for SILVER.PROVIDER_SCD2_VIA_STREAM when Bronze CMC_PRPR_PROV changes'
     AFTER     FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD

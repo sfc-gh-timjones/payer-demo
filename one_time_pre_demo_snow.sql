@@ -48,7 +48,20 @@ EXECUTE IMMEDIATE FROM
 
 
 /*=============================================================================
-  3. DBT — rebuild PROVIDER_OFFICE_HOURS with clean data
+  3. OPENFLOW — schema revert (SQL Server side)
+     Reverts CMC_PRTP_PROV_TYPE data and schema on Azure SQL Server.
+     Idempotent: PRTP_ID 2 insert skipped if already present;
+     PRTP_EFFECTIVE_DT drop skipped if column already removed.
+=============================================================================*/
+
+CALL FACETS_BRONZE.UTILS.OPENFLOW_SCHEMA_REVERT_MSSQL(
+    'tjonessqlserver.database.windows.net',
+    'openflow'
+);
+
+
+/*=============================================================================
+  4. DBT — rebuild PROVIDER_OFFICE_HOURS with clean data
      Bad code is deployed to CALOPTIMA_DW_DEV but NOT yet run.
      This overwrites the Silver table directly so demo Step 1 shows clean data.
      After demo Steps 3-6 (Time Travel + SWAP), the table is clean again automatically.
@@ -69,7 +82,7 @@ EXECUTE IMMEDIATE FROM
 
 
 /*=============================================================================
-  4. GOVERNANCE — restore Business Analyst role access
+  5. GOVERNANCE — restore Business Analyst role access
      Re-grants access revoked during the Part 2 REVOKE demo in 03_security_demo.
 =============================================================================*/
 
@@ -81,4 +94,4 @@ EXECUTE IMMEDIATE FROM
   DONE!
 =============================================================================*/
 
-SELECT 'CalOptima demo environment reset and ready. Now go run the SQL Server cleanup script.' AS status;
+SELECT 'CalOptima demo environment reset and ready.' AS status;

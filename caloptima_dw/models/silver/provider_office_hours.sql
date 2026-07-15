@@ -8,8 +8,8 @@ SELECT
     PROF_ID,
     PRPR_ID,
 
-    -- PROF_DAY_OF_WK,              -- ✅ CORRECT — uncomment + comment out bad line below to fix
-    'BAD' AS PROF_DAY_OF_WK,        -- 🔴 BAD CODE — active for CI/CD rollback demo
+    -- PROF_DAY_OF_WK,                           -- ✅ CORRECT — uncomment + comment out bad line below to fix
+    'Bad Data Inserted Here' AS PROF_DAY_OF_WK, -- 🔴 BAD CODE — active for CI/CD rollback demo
 
     PROF_OPEN_TM,
     PROF_CLOSE_TM,

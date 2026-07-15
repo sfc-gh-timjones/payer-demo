@@ -39,6 +39,6 @@ FROM FACETS_DEV.STAGING.STG_PROF_OFF_HRS;
 -- Verify: bad_rows should be 0, total_rows should be the full set
 SELECT
     COUNT(*)                                    AS total_rows,
-    COUNT_IF(PROF_DAY_OF_WK = 'BAD')           AS bad_rows,
+    COUNT_IF(PROF_DAY_OF_WK = 'Bad Data Inserted Here') AS bad_rows,
     COUNT(DISTINCT PROF_DAY_OF_WK)             AS distinct_days
 FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS;

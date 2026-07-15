@@ -52,6 +52,16 @@ EXECUTE IMMEDIATE FROM
      Bad code is deployed to CALOPTIMA_DW_DEV but NOT yet run.
      This overwrites the Silver table directly so demo Step 1 shows clean data.
      After demo Steps 3-6 (Time Travel + SWAP), the table is clean again automatically.
+
+DEMO-DAY SEQUENCE REMINDER:
+
+1. Bad code already committed to dev branch (provider_office_hours.sql).
+2. Push to dev triggers CI: deploys CALOPTIMA_DW_DEV (bad code), skips running provider_office_hours.
+3. Run this script LAST — after CI completes — so the Silver table starts clean.
+4. Demo Step 1: confirm clean data (all 7 days, no 'Bad Data Inserted Here').
+5. Demo Step 2: EXECUTE DBT PROJECT ... CALOPTIMA_DW_DEV — corrupts ~1,981 rows.
+6. Demo Steps 3-6: Time Travel clone → verify → SWAP atomically.
+7. After the SWAP, data is clean. Pre-reset needed again before the NEXT demo session.
 =============================================================================*/
 
 EXECUTE IMMEDIATE FROM
@@ -72,18 +82,3 @@ EXECUTE IMMEDIATE FROM
 =============================================================================*/
 
 SELECT 'CalOptima demo environment reset and ready. Now go run the SQL Server cleanup script.' AS status;
-
-
-/***************************************************************************************************
-
-DEMO-DAY SEQUENCE REMINDER:
-
-1. Bad code already committed to dev branch (provider_office_hours.sql).
-2. Push to dev triggers CI: deploys CALOPTIMA_DW_DEV (bad code), skips running provider_office_hours.
-3. Run this script LAST — after CI completes — so the Silver table starts clean.
-4. Demo Step 1: confirm clean data (all 7 days, no BAD).
-5. Demo Step 2: EXECUTE DBT PROJECT ... CALOPTIMA_DW_DEV — corrupts ~1,981 rows.
-6. Demo Steps 3-6: Time Travel clone → verify → SWAP atomically.
-7. After the SWAP, data is clean. Pre-reset needed again before the NEXT demo session.
-
-***************************************************************************************************/

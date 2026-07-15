@@ -8,9 +8,9 @@
 --   DBT_REFRESH_TASK_QA   → CALOPTIMA_DW     (main branch) → FACETS_QA
 --   DBT_REFRESH_TASK_PROD → CALOPTIMA_DW     (main branch) → FACETS_PROD
 --
--- NOTE: No AFTER clause — tasks are standalone here. Once the stream pipeline
---       is in place, silver_refresh_tasks.sql wires them into the DAG with
---       AFTER PROVIDER_SCD2_STREAM_TASK_*.
+-- NOTE: Tasks are chained AFTER their matching stream task (child of stream root).
+--       Resume order: child (dbt) first, then root (stream) — Snowflake requirement.
+--       silver_refresh_tasks.sql contains the full DAG reference if needed.
 -- =============================================================================
 
 USE ROLE      ACCOUNTADMIN;
@@ -23,6 +23,7 @@ USE WAREHOUSE WH_XS;
 -- DEV → FACETS_DEV (uses CALOPTIMA_DW_DEV — dev branch code)
 CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV
     WAREHOUSE = WH_XS
+    AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_DEV
     COMMENT   = 'Runs dbt build against FACETS_DEV using CALOPTIMA_DW_DEV project'
 AS
     EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW_DEV
@@ -31,6 +32,7 @@ AS
 -- QA → FACETS_QA (uses CALOPTIMA_DW — stable/main code)
 CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA
     WAREHOUSE = WH_XS
+    AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_QA
     COMMENT   = 'Runs dbt build against FACETS_QA using CALOPTIMA_DW project'
 AS
     EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
@@ -39,6 +41,7 @@ AS
 -- PROD → FACETS_PROD (uses CALOPTIMA_DW — stable/main code)
 CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD
     WAREHOUSE = WH_XS
+    AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_PROD
     COMMENT   = 'Runs dbt build against FACETS_PROD using CALOPTIMA_DW project'
 AS
     EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
@@ -51,10 +54,14 @@ AS
 SHOW TASKS LIKE 'DBT_REFRESH_TASK%' IN SCHEMA FACETS_BRONZE.UTILS;
 
 -- =============================================================================
--- Manual trigger (tasks are suspended by default after CREATE OR REPLACE)
--- Run each individually as needed:
+-- Resume — child (dbt) tasks first, then root (stream) tasks
 -- =============================================================================
 
--- EXECUTE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV;
--- EXECUTE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA;
--- EXECUTE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD;
+ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV             RESUME;
+ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_DEV    RESUME;
+
+ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA              RESUME;
+ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_QA     RESUME;
+
+ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD            RESUME;
+ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_PROD   RESUME;

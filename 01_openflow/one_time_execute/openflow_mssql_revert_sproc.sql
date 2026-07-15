@@ -6,9 +6,10 @@
 -- WHAT IT DOES (matches 01_OF_schema_revert_mssql.sql, but idempotent):
 --   1. Restores PRTP_ID 7 description back to 'Skilled Nursing Facility'
 --   2. Re-inserts PRTP_ID 2 (DO) — skipped if it already exists
---   3. Deletes demo rows PRTP_ID >= 9001
+--   3. Deletes demo rows PRTP_ID >= 9001 (covers both 9001-9005 and 9006-9010)
 --   4. Drops PRTP_EFFECTIVE_DT column — skipped if already dropped
 --   5. Narrows PRTP_DESC back to VARCHAR(100)
+--   6. Re-grants VIEW CHANGE TRACKING to openflow_user (no-op if never revoked)
 --
 -- IDEMPOTENT: safe to call multiple times in a row without errors or duplicates.
 --
@@ -78,7 +79,7 @@ def openflow_schema_revert(session, sql_server_host: str, sql_server_db: str) ->
         else:
             log.append("insert_prtp_id_2: skipped (already exists)")
 
-        # Step 3: Delete demo rows 9001-9005 (idempotent — 0 rows if already deleted)
+        # Step 3: Delete all demo rows >= 9001 (covers 9001-9005 and 9006-9010)
         cur.execute("DELETE FROM raw.CMC_PRTP_PROV_TYPE WHERE PRTP_ID >= 9001")
         log.append(f"delete_demo_rows: {cur.rowcount} row(s) deleted")
 
@@ -103,6 +104,12 @@ def openflow_schema_revert(session, sql_server_host: str, sql_server_db: str) ->
         cur.execute("SELECT COUNT(*) FROM raw.CMC_PRTP_PROV_TYPE")
         total = cur.fetchone()[0]
         log.append(f"final_row_count: {total} (expect 15)")
+
+        # Step 6: Restore VIEW CHANGE TRACKING grant to openflow_user
+        #         No-op if the grant was never revoked; fixes broken Openflow
+        #         state after running 03_OF_force_error_mssql.sql.
+        cur.execute("GRANT VIEW CHANGE TRACKING ON raw.CMC_PRTP_PROV_TYPE TO openflow_user")
+        log.append("grant_change_tracking: granted to openflow_user")
 
     except Exception as e:
         log.append(f"FAILED\nerror={e}")

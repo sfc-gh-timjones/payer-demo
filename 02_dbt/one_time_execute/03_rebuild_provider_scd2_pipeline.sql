@@ -138,11 +138,9 @@ BEGIN
             EXECUTE IMMEDIATE '
                 CREATE OR REPLACE PROCEDURE FACETS_DEV.SILVER.SP_PROVIDER_SCD2_STREAM_REFRESH()
                 RETURNS VARCHAR LANGUAGE SQL AS
-                $$
-                DECLARE
-                    rows_closed   INT DEFAULT 0;
-                    rows_inserted INT DEFAULT 0;
                 BEGIN
+                    LET rows_closed   INT DEFAULT 0;
+                    LET rows_inserted INT DEFAULT 0;
                     CREATE OR REPLACE TEMPORARY TABLE TMP_PROVIDER_CHANGES AS
                     SELECT PRPR_ID, PRPR_NPI, PRPR_NAME, PRPR_ENTITY, PRPR_STS,
                            PRPR_MCTR_TYPE, PRPR_TAXONOMY_CD, PRPR_TERM_DT,
@@ -175,8 +173,7 @@ BEGIN
 
                     DROP TABLE IF EXISTS TMP_PROVIDER_CHANGES;
                     RETURN ''Closed: '' || rows_closed || '' | Inserted: '' || rows_inserted;
-                END;
-                $$
+                END
             ';
 
             -- Task (fires after DBT_REFRESH_TASK_PROD)
@@ -252,11 +249,9 @@ BEGIN
             EXECUTE IMMEDIATE '
                 CREATE OR REPLACE PROCEDURE FACETS_QA.SILVER.SP_PROVIDER_SCD2_STREAM_REFRESH()
                 RETURNS VARCHAR LANGUAGE SQL AS
-                $$
-                DECLARE
-                    rows_closed   INT DEFAULT 0;
-                    rows_inserted INT DEFAULT 0;
                 BEGIN
+                    LET rows_closed   INT DEFAULT 0;
+                    LET rows_inserted INT DEFAULT 0;
                     CREATE OR REPLACE TEMPORARY TABLE TMP_PROVIDER_CHANGES AS
                     SELECT PRPR_ID, PRPR_NPI, PRPR_NAME, PRPR_ENTITY, PRPR_STS,
                            PRPR_MCTR_TYPE, PRPR_TAXONOMY_CD, PRPR_TERM_DT,
@@ -289,8 +284,7 @@ BEGIN
 
                     DROP TABLE IF EXISTS TMP_PROVIDER_CHANGES;
                     RETURN ''Closed: '' || rows_closed || '' | Inserted: '' || rows_inserted;
-                END;
-                $$
+                END
             ';
 
             EXECUTE IMMEDIATE '
@@ -365,11 +359,9 @@ BEGIN
             EXECUTE IMMEDIATE '
                 CREATE OR REPLACE PROCEDURE FACETS_PROD.SILVER.SP_PROVIDER_SCD2_STREAM_REFRESH()
                 RETURNS VARCHAR LANGUAGE SQL AS
-                $$
-                DECLARE
-                    rows_closed   INT DEFAULT 0;
-                    rows_inserted INT DEFAULT 0;
                 BEGIN
+                    LET rows_closed   INT DEFAULT 0;
+                    LET rows_inserted INT DEFAULT 0;
                     CREATE OR REPLACE TEMPORARY TABLE TMP_PROVIDER_CHANGES AS
                     SELECT PRPR_ID, PRPR_NPI, PRPR_NAME, PRPR_ENTITY, PRPR_STS,
                            PRPR_MCTR_TYPE, PRPR_TAXONOMY_CD, PRPR_TERM_DT,
@@ -402,8 +394,7 @@ BEGIN
 
                     DROP TABLE IF EXISTS TMP_PROVIDER_CHANGES;
                     RETURN ''Closed: '' || rows_closed || '' | Inserted: '' || rows_inserted;
-                END;
-                $$
+                END
             ';
 
             EXECUTE IMMEDIATE '

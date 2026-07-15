@@ -52,6 +52,9 @@ CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION AZURE_SQL_FACETS_EAI
     ENABLED = TRUE
     COMMENT = 'Allows Facets demo stored procedures to connect to Azure SQL Server';
 
+
+GRANT USAGE ON INTEGRATION AZURE_SQL_FACETS_EAI TO ROLE OPENFLOW_RUNTIME_ROLE;
+GRANT USAGE ON INTEGRATION AZURE_SQL_FACETS_EAI TO ROLE OPENFLOW_ADMIN;
 -- =============================================================================
 -- App Config: key/value table read by the Openflow Observability Streamlit app
 -- Add one row per SQL Server instance so the app knows which host/db to validate.

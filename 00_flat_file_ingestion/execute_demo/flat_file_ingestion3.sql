@@ -66,6 +66,7 @@ OPTION 1A: INFER SCHEMA, SCHEMA EVOLUTION & TASK-BASED LOADING
   Step 1: Infer schema and create table from csv
 ************************************************************************/
 
+/*
 --Infer Schema
 SELECT *
   FROM TABLE(
@@ -75,6 +76,7 @@ SELECT *
       , FILES => ( 'pharmacy_claims.csv' )
       )
     );
+*/
 
 --Create Table via Infer Schema 
 CREATE OR REPLACE TABLE pharmacy_claims
@@ -117,7 +119,7 @@ FILE_FORMAT = (
 )
 VALIDATION_MODE = 'RETURN_ERRORS';
 
--- ON_ERROR = ABORT_STATEMENT: load stops immediately on the first bad row
+/* ON_ERROR = ABORT_STATEMENT: load stops immediately on the first bad row
 COPY INTO pharmacy_claims
 FROM @MY_STAGE
 FILES = ('pharmacy_claims_bad_records.csv')
@@ -127,6 +129,7 @@ FILE_FORMAT = (
   FIELD_OPTIONALLY_ENCLOSED_BY = '"'
 )
 ON_ERROR = 'ABORT_STATEMENT';
+*/
 
 -- ON_ERROR = CONTINUE: skip bad rows and load everything else
 COPY INTO pharmacy_claims
@@ -210,12 +213,13 @@ FROM pharmacy_claims
 WHERE REFILL_NUMBER IS NOT NULL
 LIMIT 20;
 
--- Step 5: Count rows by batch origin
+/* Step 5: Count rows by batch origin
 SELECT
     CASE WHEN REFILL_NUMBER IS NULL THEN 'Before evolution' ELSE 'After evolution' END AS batch,
     COUNT(*) AS row_count
 FROM pharmacy_claims
 GROUP BY 1;
+*/
 
 
 /***********************************************************************

@@ -10,7 +10,7 @@
 --   2. SILVER.PROVIDER_SCD2_VIA_STREAM (table, dropped + recreated)
 --   3. Initial load INSERT             (seeds table from Bronze current state)
 --   4. SILVER.SP_PROVIDER_SCD2_STREAM_REFRESH (stored procedure)
---   5. PROVIDER_SCD2_STREAM_TASK       (task, chained in order DEV → QA → PROD)
+--   5. PROVIDER_SCD2_STREAM_TASK_DEV   (task, triggered when Bronze changes)
 --
 -- WHAT IT DOES NOT REBUILD:
 --   - dbt project objects (CALOPTIMA_DW / CALOPTIMA_DW_DEV)
@@ -23,7 +23,7 @@
 --     └─ DBT_REFRESH_TASK_DEV
 --          └─ DBT_REFRESH_TASK_QA
 --               └─ DBT_REFRESH_TASK_PROD
---                    └─ PROVIDER_SCD2_STREAM_TASK      (DEV → FACETS_DEV)
+--   PROVIDER_SCD2_STREAM_TASK_DEV  (triggered → FACETS_DEV)
 --                         └─ PROVIDER_SCD2_STREAM_TASK_QA   (QA  → FACETS_QA)
 --                              └─ PROVIDER_SCD2_STREAM_TASK_PROD (PROD → FACETS_PROD)
 -- =============================================================================
@@ -65,13 +65,13 @@ BEGIN
     -- STEP A: Suspend the full task chain (root → leaf)
     -- =========================================================================
     IF (NOT :P_DRY_RUN) THEN
-        ALTER TASK FACETS_BRONZE.UTILS.FACETS_INCREMENTAL_TASK          SUSPEND;
-        ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV             SUSPEND;
-        ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA              SUSPEND;
-        ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD            SUSPEND;
-        ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK        SUSPEND;
-        ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_QA     SUSPEND;
-        ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_PROD   SUSPEND;
+        BEGIN ALTER TASK FACETS_BRONZE.UTILS.FACETS_INCREMENTAL_TASK           SUSPEND; EXCEPTION WHEN OTHER THEN NULL; END;
+        BEGIN ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV             SUSPEND; EXCEPTION WHEN OTHER THEN NULL; END;
+        BEGIN ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA              SUSPEND; EXCEPTION WHEN OTHER THEN NULL; END;
+        BEGIN ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD            SUSPEND; EXCEPTION WHEN OTHER THEN NULL; END;
+        BEGIN ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_DEV    SUSPEND; EXCEPTION WHEN OTHER THEN NULL; END;
+        BEGIN ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_QA    SUSPEND; EXCEPTION WHEN OTHER THEN NULL; END;
+        BEGIN ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_PROD  SUSPEND; EXCEPTION WHEN OTHER THEN NULL; END;
     END IF;
     log_out := log_out || '[A] Task chain suspended\n';
 
@@ -138,11 +138,9 @@ BEGIN
             EXECUTE IMMEDIATE '
                 CREATE OR REPLACE PROCEDURE FACETS_DEV.SILVER.SP_PROVIDER_SCD2_STREAM_REFRESH()
                 RETURNS VARCHAR LANGUAGE SQL AS
-                $$
-                DECLARE
-                    rows_closed   INT DEFAULT 0;
-                    rows_inserted INT DEFAULT 0;
                 BEGIN
+                    LET rows_closed   INT DEFAULT 0;
+                    LET rows_inserted INT DEFAULT 0;
                     CREATE OR REPLACE TEMPORARY TABLE TMP_PROVIDER_CHANGES AS
                     SELECT PRPR_ID, PRPR_NPI, PRPR_NAME, PRPR_ENTITY, PRPR_STS,
                            PRPR_MCTR_TYPE, PRPR_TAXONOMY_CD, PRPR_TERM_DT,
@@ -175,16 +173,14 @@ BEGIN
 
                     DROP TABLE IF EXISTS TMP_PROVIDER_CHANGES;
                     RETURN ''Closed: '' || rows_closed || '' | Inserted: '' || rows_inserted;
-                END;
-                $$
+                END
             ';
 
             -- Task (fires after DBT_REFRESH_TASK_PROD)
             EXECUTE IMMEDIATE '
-                CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK
+                CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_DEV
                     WAREHOUSE = WH_XS
                     COMMENT   = ''SCD2 refresh for FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM''
-                    AFTER     FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD
                     WHEN      SYSTEM$STREAM_HAS_DATA(''FACETS_BRONZE.UTILS.PRPR_PROV_CHANGE_STREAM'')
                 AS
                     CALL FACETS_DEV.SILVER.SP_PROVIDER_SCD2_STREAM_REFRESH()
@@ -253,11 +249,9 @@ BEGIN
             EXECUTE IMMEDIATE '
                 CREATE OR REPLACE PROCEDURE FACETS_QA.SILVER.SP_PROVIDER_SCD2_STREAM_REFRESH()
                 RETURNS VARCHAR LANGUAGE SQL AS
-                $$
-                DECLARE
-                    rows_closed   INT DEFAULT 0;
-                    rows_inserted INT DEFAULT 0;
                 BEGIN
+                    LET rows_closed   INT DEFAULT 0;
+                    LET rows_inserted INT DEFAULT 0;
                     CREATE OR REPLACE TEMPORARY TABLE TMP_PROVIDER_CHANGES AS
                     SELECT PRPR_ID, PRPR_NPI, PRPR_NAME, PRPR_ENTITY, PRPR_STS,
                            PRPR_MCTR_TYPE, PRPR_TAXONOMY_CD, PRPR_TERM_DT,
@@ -290,15 +284,13 @@ BEGIN
 
                     DROP TABLE IF EXISTS TMP_PROVIDER_CHANGES;
                     RETURN ''Closed: '' || rows_closed || '' | Inserted: '' || rows_inserted;
-                END;
-                $$
+                END
             ';
 
             EXECUTE IMMEDIATE '
                 CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_QA
                     WAREHOUSE = WH_XS
                     COMMENT   = ''SCD2 refresh for FACETS_QA.SILVER.PROVIDER_SCD2_VIA_STREAM''
-                    AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK
                     WHEN      SYSTEM$STREAM_HAS_DATA(''FACETS_BRONZE.UTILS.PRPR_PROV_CHANGE_STREAM_QA'')
                 AS
                     CALL FACETS_QA.SILVER.SP_PROVIDER_SCD2_STREAM_REFRESH()
@@ -367,11 +359,9 @@ BEGIN
             EXECUTE IMMEDIATE '
                 CREATE OR REPLACE PROCEDURE FACETS_PROD.SILVER.SP_PROVIDER_SCD2_STREAM_REFRESH()
                 RETURNS VARCHAR LANGUAGE SQL AS
-                $$
-                DECLARE
-                    rows_closed   INT DEFAULT 0;
-                    rows_inserted INT DEFAULT 0;
                 BEGIN
+                    LET rows_closed   INT DEFAULT 0;
+                    LET rows_inserted INT DEFAULT 0;
                     CREATE OR REPLACE TEMPORARY TABLE TMP_PROVIDER_CHANGES AS
                     SELECT PRPR_ID, PRPR_NPI, PRPR_NAME, PRPR_ENTITY, PRPR_STS,
                            PRPR_MCTR_TYPE, PRPR_TAXONOMY_CD, PRPR_TERM_DT,
@@ -404,15 +394,13 @@ BEGIN
 
                     DROP TABLE IF EXISTS TMP_PROVIDER_CHANGES;
                     RETURN ''Closed: '' || rows_closed || '' | Inserted: '' || rows_inserted;
-                END;
-                $$
+                END
             ';
 
             EXECUTE IMMEDIATE '
                 CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_PROD
                     WAREHOUSE = WH_XS
                     COMMENT   = ''SCD2 refresh for FACETS_PROD.SILVER.PROVIDER_SCD2_VIA_STREAM''
-                    AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_QA
                     WHEN      SYSTEM$STREAM_HAS_DATA(''FACETS_BRONZE.UTILS.PRPR_PROV_CHANGE_STREAM_PROD'')
                 AS
                     CALL FACETS_PROD.SILVER.SP_PROVIDER_SCD2_STREAM_REFRESH()
@@ -426,13 +414,13 @@ BEGIN
     -- STEP E: Resume task chain (leaf → root)
     -- =========================================================================
     IF (NOT :P_DRY_RUN) THEN
-        ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_PROD   RESUME;
-        ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_QA     RESUME;
-        ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK        RESUME;
-        ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD            RESUME;
-        ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA              RESUME;
-        ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV             RESUME;
-        ALTER TASK FACETS_BRONZE.UTILS.FACETS_INCREMENTAL_TASK          RESUME;
+        BEGIN ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_PROD  RESUME; EXCEPTION WHEN OTHER THEN NULL; END;
+        BEGIN ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_QA    RESUME; EXCEPTION WHEN OTHER THEN NULL; END;
+        BEGIN ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_DEV   RESUME; EXCEPTION WHEN OTHER THEN NULL; END;
+        BEGIN ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD           RESUME; EXCEPTION WHEN OTHER THEN NULL; END;
+        BEGIN ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA             RESUME; EXCEPTION WHEN OTHER THEN NULL; END;
+        BEGIN ALTER TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV            RESUME; EXCEPTION WHEN OTHER THEN NULL; END;
+        BEGIN ALTER TASK FACETS_BRONZE.UTILS.FACETS_INCREMENTAL_TASK          RESUME; EXCEPTION WHEN OTHER THEN NULL; END;
     END IF;
     log_out := log_out || '\n[E] Task chain resumed\n';
 

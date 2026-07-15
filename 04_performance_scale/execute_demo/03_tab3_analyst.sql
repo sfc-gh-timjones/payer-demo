@@ -24,7 +24,7 @@ ORDER BY month_num, ship_year;
 
 -- Query 2: Seasonality — revenue by month across all years
 SELECT
-    MONTH(L_SHIPDATE)                                      AS month_num,
+    month_num,
     ROUND(AVG(monthly_revenue), 0)                         AS avg_monthly_revenue,
     MIN(monthly_revenue)                                   AS min_revenue,
     MAX(monthly_revenue)                                   AS max_revenue

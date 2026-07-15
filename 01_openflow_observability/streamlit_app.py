@@ -1,7 +1,14 @@
 import re
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+MTN_TZ = ZoneInfo("America/Denver")
+
+def now_mtn():
+    """Current time in Mountain Time (handles DST automatically)."""
+    return datetime.now(timezone.utc).astimezone(MTN_TZ)
 
 st.set_page_config(
     page_title="Openflow Observability",
@@ -73,7 +80,7 @@ WITH telemetry AS (
     WHERE RECORD_TYPE = 'METRIC'
       AND {OF_FILTER}
       AND RECORD:"metric"."name"::VARCHAR IN ('db.last.ingestion.time', 'db.table.status')
-      AND TIMESTAMP >= DATEADD('hour', -1, CURRENT_TIMESTAMP())
+      AND TIMESTAMP >= DATEADD('hour', -{hours_back}, CURRENT_TIMESTAMP())
     GROUP BY 1
 ),
 row_counts AS (
@@ -323,7 +330,7 @@ if run_validation:
                 )
             """).to_pandas()
             st.session_state["row_count_result"] = result_df.iloc[0, 0]
-            st.session_state["row_count_ts"]     = datetime.now()
+            st.session_state["row_count_ts"]     = now_mtn()
             st.session_state.pop("row_count_error", None)
         except Exception as e:
             st.session_state["row_count_error"] = str(e)
@@ -384,12 +391,12 @@ elif st.session_state.get("row_count_result"):
         )
 
         if gaps == 0:
-            st.success(f"✓ ALL TABLES IN SYNC — Validated at {ts.strftime('%Y-%m-%d %H:%M MT')}")
+            st.success(f"✓ ALL TABLES IN SYNC — Validated at {ts.strftime('%Y-%m-%d %H:%M')} MT")
         else:
-            st.warning(f"⚠ GAPS DETECTED ({gaps} tables) — Validated at {ts.strftime('%Y-%m-%d %H:%M MT')}")
+            st.warning(f"⚠ GAPS DETECTED ({gaps} tables) — Validated at {ts.strftime('%Y-%m-%d %H:%M')} MT")
 
 st.caption(
     f"60s cache · All times Mountain Time (MDT/UTC-6) · "
     f"Window: last {hours_back}h · "
-    f"Rendered: {datetime.now().strftime('%Y-%m-%d %H:%M MT')}"
+    f"Rendered: {now_mtn().strftime('%Y-%m-%d %H:%M')} MT"
 )

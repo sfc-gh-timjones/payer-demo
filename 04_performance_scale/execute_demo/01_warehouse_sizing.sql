@@ -1,15 +1,6 @@
 -- =============================================================================
 -- FILE: 01_warehouse_sizing.sql
--- PURPOSE: CalOptima RFP 26-038 | Performance — Elastic Warehouse Sizing
---          Show how query time drops instantly when you scale compute up.
---
--- HOW TO RUN:
---   1. Run SETUP (Part 1) once
---   2. Disable cache (Part 2) — verify it's off
---   3. Uncomment ONE warehouse size in Part 3 and run that line
---   4. Run the benchmark query in Part 4 — note the elapsed time in Snowsight
---   5. Go back to Part 3, switch to the next size, run Part 4 again
---   6. Repeat to compare — same query, different compute, different time
+-- PURPOSE: Scale Up
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -79,28 +70,6 @@ FROM LINEITEM
 WHERE L_SHIPDATE <= DATEADD(DAY, -90, TO_DATE('1998-12-01'))
 GROUP BY  L_RETURNFLAG, L_LINESTATUS
 ORDER BY  L_RETURNFLAG, L_LINESTATUS;
-
-
--- =============================================================================
--- PART 5: COMPARE ALL RUNS IN QUERY HISTORY (run at end of demo)
--- Note: ACCOUNT_USAGE.QUERY_HISTORY has ~2-min ingestion lag.
--- =============================================================================
-
-USE WAREHOUSE WH_XS;
-
-SELECT
-    WAREHOUSE_SIZE,
-    TOTAL_ELAPSED_TIME / 1000.0  AS elapsed_sec,
-    BYTES_SCANNED / 1e9          AS gb_scanned,
-    START_TIME
-FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
-WHERE WAREHOUSE_NAME = 'WH_ENTERPRISE_ANALYTICS'
-  AND QUERY_TEXT ILIKE '%sum_charge%'
-  AND START_TIME > DATEADD('hour', -1, CURRENT_TIMESTAMP())
-ORDER BY START_TIME;
--- Each row = one run at a different warehouse size
--- Talking point: same query, same data — only compute size changed.
--- No code changes. No data movement. No infrastructure tickets.
 
 
 -- =============================================================================

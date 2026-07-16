@@ -115,17 +115,13 @@ WHERE TABLE_SCHEMA = 'RAW'
 ORDER BY TABLE_NAME;
 -- Expected: 0 rows (all journal tables dropped by Section 2)
 
---Verify PROV_TYPE table is no longer in Snowflake. Should return zero results.
-SELECT *
-FROM FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE;
-
 --Verify office hours is clean.
 SELECT PROF_DAY_OF_WK, COUNT(*) AS cnt
 FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
 GROUP BY PROF_DAY_OF_WK
 ORDER BY cnt DESC;
 
-USE ROLE BUSINESS_ANALYST_ROLE
+USE ROLE BUSINESS_ANALYST_ROLE;
 -- VERIFY 2: Business Analyst role access restored
 SELECT *
 FROM ZFACETS_DEV_CLONE.SILVER.MEMBER;

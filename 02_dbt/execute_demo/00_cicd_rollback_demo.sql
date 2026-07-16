@@ -19,9 +19,6 @@ USE SCHEMA SILVER;
 -- STEP 1: View table
 -- =============================================================================
 
--- Overall row count
-SELECT COUNT(*) AS total_rows FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS;
-
 -- Clean data: 5 days of the weekday
 SELECT PROF_DAY_OF_WK, COUNT(*) AS cnt
 FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
@@ -45,19 +42,24 @@ SET bad_run_id = LAST_QUERY_ID();
 SELECT $bad_run_id AS bad_run_query_id;
 
 --view bad data introduced on last run
-SELECT *
-FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
-ORDER BY PROF_DAY_OF_WK; 
-
 SELECT PROF_DAY_OF_WK, COUNT(*) AS cnt
 FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
 GROUP BY PROF_DAY_OF_WK
 ORDER BY cnt DESC;
 
+
+SELECT *
+FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
+ORDER BY PROF_DAY_OF_WK; 
+
 -- =============================================================================
 -- STEP 3: Clone to a restore point using Time Travel
 --         MERGE preserves the table object — Time Travel history is intact.
 -- =============================================================================
+
+SELECT *
+FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
+    BEFORE (STATEMENT => $bad_run_id);
 
 CREATE TABLE FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS_RESTORE
     CLONE FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
@@ -89,16 +91,15 @@ ALTER TABLE FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
 -- STEP 6: Confirm the swap worked
 -- =============================================================================
 
-SELECT *
-FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
-ORDER BY PROF_DAY_OF_WK; 
-
-
 SELECT PROF_DAY_OF_WK, COUNT(*) AS cnt
 FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
 GROUP BY PROF_DAY_OF_WK
 ORDER BY cnt DESC;
 -- 'Bad Data Inserted Here' is gone — MON/TUE/WED/THU/FRI/SAT/SUN back to normal
+
+SELECT *
+FROM FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS
+ORDER BY PROF_DAY_OF_WK; 
 
 -- =============================================================================
 -- STEP 7: Clean up the temp table (now holds the bad data)

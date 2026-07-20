@@ -3,6 +3,7 @@
 context/
 zz_naming_conventions_old/
 facets_demo/
+**/z_legacy_ignore/
 
 # dbt artifacts (in caloptima_dw)
 caloptima_dw/target/

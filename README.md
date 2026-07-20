@@ -141,8 +141,10 @@ The latency alert deploys `FACETS_LATENCY_CHECK` + `FACETS_LATENCY_TASK` — che
 
 1. Fork/clone this repo, push to the `dev` branch
 2. Set GitHub Actions secrets: `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_PAT`
-3. A push to `dev` automatically runs `.github/workflows/dbt_ci.yml` which deploys `CALOPTIMA_DW_DEV` and runs `dbt build --target dev`
+3. A push to `dev` automatically runs `.github/workflows/dbt_ci.yml` which deploys `CALOPTIMA_DW_DEV` and runs `dbt build --target dev --exclude provider_office_hours`
 4. Merge to `main` deploys `CALOPTIMA_DW` and runs qa + prod builds
+
+> **Why `--exclude provider_office_hours`?** The dev branch intentionally carries bad code in that model for the CI/CD rollback demo. Excluding it from the CI build means the bad code gets deployed to `CALOPTIMA_DW_DEV` but never runs automatically — it only runs when you manually trigger it during Step 2 of the demo.
 
 To manually deploy without CI:
 
@@ -243,6 +245,9 @@ Replace `MY_GIT_API_INTEGRATION` and `MY_GIT_SECRET` with your own Git API Integ
 ---
 
 ## 3. Pre-Demo Reset (Before Every Session)
+
+> **MANUAL STEP FIRST — do this before running the script:**
+> In the **Openflow UI**, remove `FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE` from the connector's replication table list. If you skip this, Openflow will immediately re-replicate the table after the Snowflake revert drops it, and the reset will not hold.
 
 Run **`one_time_pre_demo_snow.sql`** (at the repo root) before every demo. It is designed to be run top-to-bottom and handles all resets automatically:
 
@@ -442,7 +447,12 @@ Reads from `OPENFLOW.TELEMETRY.EVENTS` (Openflow sets this automatically as the 
 
 ### 02 — dbt / CI/CD / Time Travel Rollback
 
-**Folder:** `02_dbt/`
+**Two separate folders are involved — do not confuse them:**
+
+| Folder | Contents |
+|---|---|
+| `caloptima_dw/` | The dbt project itself: models, tests, snapshots, macros, profiles. This is what CI deploys and what `dbt build` runs. |
+| `02_dbt/` | Demo execution scripts and one-time setup SQL. Not part of the dbt project — these are Snowflake SQL files you run in Snowsight. |
 
 **What it shows:** dbt native SCD2 snapshots, stream+task SCD2, CI/CD pipeline with two project objects, Time Travel for data recovery without waiting for a code fix.
 
@@ -473,13 +483,13 @@ This bad code is deployed to `CALOPTIMA_DW_DEV` but **never automatically runs**
 #### CI/CD rollback demo flow (`00_cicd_rollback_demo.sql`)
 
 ```
-Step 1: SELECT — show clean data (7 days of the week, no 'Bad Data Inserted Here')
+Step 1: SELECT — show clean data (5 weekdays MON–FRI, no 'Bad Data Inserted Here')
 Step 2: EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW_DEV
         ARGS = 'run --select provider_office_hours --target dev'
         SET bad_run_id = LAST_QUERY_ID();    ← capture immediately
 Step 3: SELECT — show ~1,981 rows corrupted with 'Bad Data Inserted Here'
 Step 4: CREATE TABLE ... CLONE ... BEFORE (STATEMENT => $bad_run_id)   ← Time Travel
-Step 5: SELECT restore table — confirm 7 days back, no bad data
+Step 5: SELECT restore table — confirm 5 weekdays (MON–FRI) back, no bad data
 Step 6: ALTER TABLE ... SWAP WITH ...   ← atomic, zero downtime
 Step 7: SELECT — confirm production is clean
 ```
@@ -697,9 +707,11 @@ Four test types are attached across all models in `schema.yml`:
 
 #### Unit tests
 
-Two dbt unit tests in `models/staging/schema.yml` validate transformation logic against mock data (no database required):
+Four dbt unit tests in `models/staging/schema.yml` validate transformation logic against mock data (no database required):
 - `test_provider_entity_decode` — `PRPR_ENTITY = 'I'/'O'` correctly decoded to `PROVIDER_TYPE`
 - `test_npi_validation_flag` — non-10-digit and non-numeric NPIs produce `NPI_VALID = false`
+- `test_member_demo_key_deterministic` — `DEMO_KEY` (MD5 of subscriber+DOB+sex+name) is stable across runs
+- `test_soft_delete_passthrough` — `_SNOWFLAKE_DELETED = TRUE` flows through to `IS_DELETED` correctly
 
 ---
 

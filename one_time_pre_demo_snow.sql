@@ -71,7 +71,7 @@ DEMO-DAY SEQUENCE REMINDER:
 1. Bad code already committed to dev branch (provider_office_hours.sql).
 2. Push to dev triggers CI: deploys CALOPTIMA_DW_DEV (bad code), skips running provider_office_hours.
 3. Run this script LAST — after CI completes — so the Silver table starts clean.
-4. Demo Step 1: confirm clean data (all 7 days, no 'Bad Data Inserted Here').
+4. Demo Step 1: confirm clean data (5 weekdays MON–FRI, no 'Bad Data Inserted Here').
 5. Demo Step 2: EXECUTE DBT PROJECT ... CALOPTIMA_DW_DEV — corrupts ~1,981 rows.
 6. Demo Steps 3-6: Time Travel clone → verify → SWAP atomically.
 7. After the SWAP, data is clean. Pre-reset needed again before the NEXT demo session.
@@ -104,8 +104,11 @@ SELECT 'CalOptima demo environment reset and ready.' AS status, getdate() as las
 USE ROLE ACCOUNTADMIN;
 
 --Verify PROV_TYPE table is no longer in Snowflake
-SELECT *
-FROM FACETS_BRONZE.RAW.CMC_PRTP_PROV_TYPE;
+-- Expected: 0 rows. If table still exists, Openflow re-replicated it -- go remove it from the connector and re-run Section 2.
+SELECT TABLE_NAME
+FROM FACETS_BRONZE.INFORMATION_SCHEMA.TABLES
+WHERE TABLE_SCHEMA = 'RAW' AND TABLE_NAME = 'CMC_PRTP_PROV_TYPE';
+-- 0 rows = table is gone (good). 1 row = table came back (Openflow is still replicating it).
 
 --  VERIFY 1: PRTP journal tables wiped clean
 SELECT TABLE_NAME, ROW_COUNT

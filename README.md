@@ -1,6 +1,6 @@
-# CalOptima RFP 26-038 — Snowflake Demo Environment
+# CalOptima — Snowflake Demo Environment
 
-This repo is a complete Sales Engineering demo environment for **CalOptima RFP 26-038**. It demonstrates Snowflake's capabilities across seven scenarios using synthetic [TriZetto Facets](https://www.trizetto.com/products/facets/) health plan data replicated in real time from Azure SQL Server via Openflow.
+This repo is a complete Sales Engineering demo environment for **CalOptima**. It demonstrates Snowflake's capabilities across seven scenarios using synthetic [TriZetto Facets](https://www.trizetto.com/products/facets/) health plan data replicated in real time from Azure SQL Server via Openflow.
 
 A colleague starting fresh should be able to rebuild the entire environment by following the setup order in this document.
 
@@ -25,7 +25,8 @@ A colleague starting fresh should be able to rebuild the entire environment by f
 7. [Task & Alert Pipeline](#7-task--alert-pipeline)
 8. [dbt Project Structure](#8-dbt-project-structure)
 9. [Key Stored Procedures Reference](#9-key-stored-procedures-reference)
-10. [File Naming Conventions](#10-file-naming-conventions)
+10. [Environment-Specific Values](#10-environment-specific-values)
+11. [File Naming Conventions](#11-file-naming-conventions)
 
 ---
 
@@ -735,7 +736,27 @@ All Python sprocs use `pytds` (pure-Python TDS driver) for Azure SQL connectivit
 
 ---
 
-## 10. File Naming Conventions
+## 10. Environment-Specific Values
+
+When setting up this demo in a different Snowflake account, these are the values you'll need to replace throughout the scripts:
+
+| What | Current value | Where to change |
+|---|---|---|
+| SQL Server host | `tjonessqlserver.database.windows.net` | All sproc CALL statements, `one_time_pre_demo_snow.sql`, `APP_CONFIG` table |
+| SQL Server database | `openflow` | Same as above |
+| Azure Blob storage URL | `azure://timjones.blob.core.windows.net/data/` | `00_flat_file_ingestion/execute_demo/flat_file_ingestion1.sql` |
+| AWS S3 bucket | `s3://capstone-timjones/` | `flat_file_ingestion2.sql` |
+| GitHub repo URL | `https://github.com/sfc-gh-timjones/caloptima` | `one_time_pre_demo_snow.sql`, `03_snowflake_secrets_setup.sql` |
+| Git API Integration name | `MY_GIT_API_INTEGRATION` | `one_time_pre_demo_snow.sql` |
+| Git PAT secret path | `POLICY_SETTINGS.POLICY_SCHEMA.MY_GIT_SECRET` | `one_time_pre_demo_snow.sql` |
+| Alert/email recipient | `t.jones@snowflake.com` | `00_alert_data_latency.sql`, DQ alert setup, `MEMBER_DQ_ALERT` |
+| Email integration name | `MY_EMAIL_INTEGRATION` | DQ alert setup, latency alert |
+| Demo warehouse | `WH_XS` | All task definitions, `one_time_pre_demo_snow.sql` |
+| SQL Server credentials secret | `FACETS_BRONZE.UTILS.FACETS_SQL_CREDS` | Pre-existing — deploy via `03_snowflake_secrets_setup.sql` |
+
+---
+
+## 11. File Naming Conventions
 
 | Pattern | Meaning |
 |---|---|

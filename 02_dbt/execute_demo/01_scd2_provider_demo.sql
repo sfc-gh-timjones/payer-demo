@@ -1,39 +1,12 @@
 -- =============================================================================
 -- SCD TYPE 2 on Providers
 -- =============================================================================
---Single record example dbt snapshots
-SELECT
-    PRPR_ID,
-    PRPR_NAME,
-    PRPR_STS,
-    PROVIDER_TYPE,
-    PRPR_TAXONOMY_CD,
-    CONTRACT_TYPE,
-    DBT_VALID_FROM,
-    DBT_VALID_TO,
-    CASE WHEN DBT_VALID_TO IS NULL THEN TRUE ELSE FALSE END AS IS_CURRENT
-FROM FACETS_DEV.SILVER.PROVIDER_SNAPSHOT
-WHERE PRPR_ID = 3390
-ORDER BY PRPR_ID, DBT_VALID_TO NULLS FIRST;
-
---Show logic first
---Streams and Tasks
-SELECT
-    PRPR_ID,
-    PRPR_NAME,
-    PRPR_STS,
-    PROVIDER_TYPE,
-    PRPR_TAXONOMY_CD,
-    CONTRACT_TYPE,
-    EFFECTIVE_FROM,
-    EFFECTIVE_TO,
-    IS_CURRENT
-FROM FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM
-WHERE PRPR_ID = 3390
-ORDER BY PRPR_ID, EFFECTIVE_TO NULLS FIRST;
 
 
-/*QUERY ENTIRE TABLES*/
+/*QUERY ENTIRE TABLES
+
+Comment 5:21pm
+*/
 
 -- DBT Snapshots
 WITH PROV_WITH_HISTORY AS (
@@ -62,7 +35,7 @@ ORDER BY
     version_flag desc, 
     h.VERSION_COUNT DESC NULLS LAST,
     s.PRPR_ID,
-    s.DBT_VALID_TO NULLS FIRST;
+    s.DBT_VALID_TO DESC NULLS FIRST;
 
 
 -- Via Stream
@@ -93,7 +66,7 @@ ORDER BY
     version_flag desc, 
     h.VERSION_COUNT DESC NULLS LAST,
     s.PRPR_ID,
-    s.EFFECTIVE_TO NULLS FIRST;
+    s.EFFECTIVE_TO DESC NULLS FIRST;
 
 
 
@@ -101,16 +74,36 @@ ORDER BY
 
 
 
--- =============================================================================
--- QUERY 1A: Spot-check — known changed providers in PROVIDER_SNAPSHOT (dbt)
--- =============================================================================
+--Single record example dbt snapshots
+SELECT
+    PRPR_ID,
+    PRPR_NAME,
+    PRPR_STS,
+    PROVIDER_TYPE,
+    PRPR_TAXONOMY_CD,
+    CONTRACT_TYPE,
+    DBT_VALID_FROM,
+    DBT_VALID_TO,
+    CASE WHEN DBT_VALID_TO IS NULL THEN TRUE ELSE FALSE END AS IS_CURRENT
+FROM FACETS_DEV.SILVER.PROVIDER_SNAPSHOT
+WHERE PRPR_ID = 3390
+ORDER BY PRPR_ID, DBT_VALID_TO NULLS FIRST;
 
-
-
-
--- =============================================================================
--- QUERY 1B: Spot-check — same providers in PROVIDER_SCD2_VIA_STREAM (stream/task)
--- =============================================================================
+--Show logic first
+--Streams and Tasks
+SELECT
+    PRPR_ID,
+    PRPR_NAME,
+    PRPR_STS,
+    PROVIDER_TYPE,
+    PRPR_TAXONOMY_CD,
+    CONTRACT_TYPE,
+    EFFECTIVE_FROM,
+    EFFECTIVE_TO,
+    IS_CURRENT
+FROM FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM
+WHERE PRPR_ID = 3390
+ORDER BY PRPR_ID, EFFECTIVE_TO NULLS FIRST;
 
 
 

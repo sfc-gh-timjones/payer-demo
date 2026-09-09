@@ -1,0 +1,29 @@
+name: Sync main → dev after merge
+
+# Fires whenever a PR is merged into main (or any direct push to main).
+# Merges main back into dev so dev never falls behind.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  sync:
+    name: Merge main into dev
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # required to push back to dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # full history needed for merge
+          ref: dev              # check out dev, not main
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge main into dev
+        run: |
+          git merge origin/main --no-edit
+          git push origin dev

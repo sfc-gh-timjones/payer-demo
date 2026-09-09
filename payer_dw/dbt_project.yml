@@ -1,0 +1,35 @@
+name: payer_dw
+version: '1.0.0'
+config-version: 2
+profile: payer_dw
+
+model-paths:    ["models"]
+test-paths:     ["tests"]
+macro-paths:    ["macros"]
+analysis-paths: ["analysis"]
+snapshot-paths: ["snapshots"]
+
+models:
+  payer_dw:
+    staging:
+      +materialized: view
+      +schema: STAGING
+    intermediate:
+      +materialized: ephemeral
+    silver:
+      +materialized: incremental
+      +incremental_strategy: merge
+      +on_schema_change: sync_all_columns
+      +schema: SILVER
+      +transient: false
+    gold:
+      +materialized: view
+      +schema: GOLD
+    ops:
+      +materialized: table
+      +schema: DQ
+
+snapshots:
+  payer_dw:
+    +target_schema: SILVER
+    +transient: false

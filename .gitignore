@@ -1,0 +1,27 @@
+# Folders not pushed to git
+.snowflake/
+context/
+zz_naming_conventions_old/
+facets_demo/
+**/z_legacy_ignore/
+
+# dbt artifacts (in payer_dw)
+payer_dw/target/
+payer_dw/dbt_packages/
+payer_dw/logs/
+payer_dw/static_index.html
+**/static_index.html
+
+# Streamlit deploy artifacts
+output/
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.pdf
+
+# OS / editor noise
+.DS_Store
+*.pyc
+__pycache__/

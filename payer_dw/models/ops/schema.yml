@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: dup_metrics
+    description: >
+      Pipeline observability: Bronze row counts vs Silver deduplicated row counts
+      for providers and members. Shows duplicate_pct that Silver transformation removes.
+    columns:
+      - name: domain
+        tests:
+          - accepted_values: {values: ['Provider', 'Member']}
+      - name: bronze_rows
+        tests: [not_null]
+      - name: duplicate_pct
+        description: "Percentage of Bronze rows that are duplicates. Expect ~1-5% in demo data."
+      - name: silver_rows
+        tests: [not_null]
+
+  - name: dq_row_counts
+    description: >
+      Pipeline observability: Bronze vs Silver row count reconciliation for the
+      three primary entities. Silver row counts should be <= Bronze active row
+      counts due to deduplication.
+    columns:
+      - name: layer
+        tests: [not_null]
+      - name: stage
+        tests:
+          - accepted_values: {values: ['Bronze', 'Silver']}
+      - name: row_count
+        tests: [not_null]

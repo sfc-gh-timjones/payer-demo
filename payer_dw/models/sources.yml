@@ -1,0 +1,55 @@
+version: 2
+
+sources:
+  - name: raw
+    database: FACETS_BRONZE
+    schema: RAW
+    loaded_at_field: _SNOWFLAKE_UPDATED_AT
+    freshness:
+      warn_after: {count: 60, period: minute}
+      error_after: {count: 120, period: minute}
+    tables:
+      # ── Reference / Lookup ────────────────────────────────────────────────
+      - name: CMC_PROF_OFF_HRS
+        description: "Provider office hours. Day-of-week open/close times per provider location. ~3,963 rows. Never updated by the incremental load proc — set at credentialing, static reference data."
+
+      # ── Networks & Agreements ──────────────────────────────────────────────
+      - name: CMC_AGAG_AGREEMENT
+        description: "Provider contracts and agreements. AGAG_MCTR_TYPE: FFS=Fee for Service, CAP=Capitation, PER_DIEM=Per Diem."
+
+      # ── Providers ─────────────────────────────────────────────────────────
+      - name: CMC_PRPR_PROV
+        description: "Core provider record. PRPR_ENTITY: I=Individual (Type 1 NPI), O=Organization (Type 2 NPI)."
+
+      - name: CMC_PRAD_ADDRESS
+        description: "Provider addresses. PRAD_TYPE: PR=Primary practice address, RM=Remit address."
+
+      - name: CMC_PRER_RELATION
+        description: "Individual-to-organization links. Ties individual providers to their group practice."
+
+      - name: CMC_PRNP_NPI
+        description: "NPI cross-reference. PRNP_NPI_TYPE: 1=Individual, 2=Organization."
+
+      - name: CMC_NWPR_RELATION
+        description: "Provider network participation. Links providers to networks and agreements."
+
+      # ── Subscribers ───────────────────────────────────────────────────────
+      - name: CMC_SBSB_SUBSC
+        description: "Subscriber (policyholder) demographics and enrollment status."
+
+      # ── Members ───────────────────────────────────────────────────────────
+      - name: CMC_MEME_MEMBER
+        description: "Member records. MEME_REL_CD: 01=Subscriber, 02=Spouse, 03=Child, 04=Other."
+
+      - name: CMC_MEPR_PRIM_PROV
+        description: "PCP assignments per member. MEPR_TERM_DT IS NULL = currently active assignment."
+
+      - name: CMC_MECD_MEDICAID
+        description: "Medi-Cal aid code and BIC per member."
+
+      - name: CMC_MESU_SUBSIDY
+        description: "APTC subsidy and premium amounts per member (ACA/Covered CA)."
+
+      # ── Eligibility ───────────────────────────────────────────────────────
+      - name: CMC_MEPE_PRCS_ELIG
+        description: "Eligibility spans per member and plan. MEPE_PLAN_TYPE: HMO/PPO/MEDICAID/DSNP."

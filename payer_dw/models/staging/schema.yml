@@ -1,0 +1,220 @@
+version: 2
+
+models:
+  - name: stg_prpr_prov
+    description: >
+      Staged provider records from FACETS_BRONZE.RAW.CMC_PRPR_PROV.
+      Applies PRPR_ENTITY and PRPR_STS decodes, NPI format validation flag,
+      and filters soft-deleted rows (_SNOWFLAKE_DELETED = FALSE).
+    columns:
+      - name: PRPR_ID
+        description: "Unique provider identifier."
+        tests: [not_null, unique]
+      - name: NPI_VALID
+        description: "TRUE if PRPR_NPI is exactly 10 digits."
+        tests: [not_null]
+      - name: PROVIDER_TYPE
+        tests:
+          - accepted_values:
+              values: ['Individual (Type 1)', 'Organization (Type 2)', 'Unknown']
+      - name: STATUS_DESC
+        tests:
+          - accepted_values:
+              values: ['Active', 'Inactive', 'Suspended']
+      - name: CONTRACT_TYPE
+        tests:
+          - accepted_values:
+              values: ['Fee for Service', 'Capitation', 'Per Diem', null]
+
+  - name: stg_meme_member
+    description: >
+      Staged member records from CMC_MEME_MEMBER.
+      Adds demographic dedup key (DEMO_KEY) as MD5 of subscriber+DOB+sex+name.
+    columns:
+      - name: MEME_ID
+        tests: [not_null, unique]
+      - name: SBSB_ID
+        tests: [not_null]
+      - name: DEMO_KEY
+        description: "MD5 of SBSB_ID|DOB|SEX|LAST_NAME|FIRST_NAME — used for near-duplicate detection."
+        tests: [not_null]
+      - name: RELATIONSHIP_DESC
+        tests:
+          - accepted_values:
+              values: ['Subscriber', 'Spouse', 'Child', 'Other Dependent']
+
+  - name: stg_mepe_prcs_elig
+    description: >
+      Staged eligibility spans from CMC_MEPE_PRCS_ELIG.
+      Adds IS_ACTIVE_SPAN flag and PLAN_TYPE_DESC decode.
+    columns:
+      - name: MEPE_ID
+        tests: [not_null, unique]
+      - name: MEME_ID
+        tests: [not_null]
+      - name: PLAN_TYPE_DESC
+        tests:
+          - accepted_values:
+              severity: warn
+              values:
+                - 'Health Maintenance Organization'
+                - 'Preferred Provider Organization'
+                - 'Medicaid'
+                - 'Dual Special Needs Plan'
+
+  - name: stg_mepr_prim_prov
+    description: "Staged PCP assignments from CMC_MEPR_PRIM_PROV."
+    columns:
+      - name: MEME_ID
+        tests: [not_null]
+      - name: PRPR_ID
+        tests: [not_null]
+      - name: IS_ACTIVE_PCP
+        tests: [not_null]
+
+  - name: stg_prad_address
+    description: "Staged provider addresses from CMC_PRAD_ADDRESS, ranked by type (PR first)."
+    columns:
+      - name: PRPR_ID
+        tests: [not_null]
+
+  - name: stg_nwpr_relation
+    description: "Staged provider network participation from CMC_NWPR_RELATION."
+    columns:
+      - name: PRPR_ID
+        tests: [not_null]
+      - name: NWNW_ID
+        tests: [not_null]
+
+  - name: stg_agag_agreement
+    description: "Staged provider agreements from CMC_AGAG_AGREEMENT."
+    columns:
+      - name: AGAG_ID
+        tests: [not_null, unique]
+
+  - name: stg_prer_relation
+    description: "Staged individual-to-org links from CMC_PRER_RELATION."
+    columns:
+      - name: PRPR_ID
+        tests: [not_null]
+
+  - name: stg_prnp_npi
+    description: "Staged NPI cross-reference from CMC_PRNP_NPI."
+    columns:
+      - name: PRPR_ID
+        tests: [not_null]
+      - name: NPI_TYPE_DESC
+        tests:
+          - accepted_values:
+              values: ['Individual', 'Organization']
+
+  - name: stg_sbsb_subsc
+    description: "Staged subscriber records from CMC_SBSB_SUBSC."
+    columns:
+      - name: SBSB_ID
+        tests: [not_null, unique]
+
+  - name: stg_mecd_medicaid
+    description: "Staged Medi-Cal aid codes from CMC_MECD_MEDICAID."
+    columns:
+      - name: MEME_ID
+        tests: [not_null]
+
+  - name: stg_mesu_subsidy
+    description: "Staged APTC subsidy amounts from CMC_MESU_SUBSIDY."
+    columns:
+      - name: MEME_ID
+        tests: [not_null]
+
+unit_tests:
+  - name: test_provider_entity_decode
+    description: "PRPR_ENTITY I/O correctly decoded to PROVIDER_TYPE"
+    model: stg_prpr_prov
+    given:
+      - input: source('raw', 'CMC_PRPR_PROV')
+        rows:
+          - {PRPR_ID: 1001, PRPR_ENTITY: 'I', PRPR_STS: 'AC', PRPR_NPI: '1234567890',
+             PRPR_NAME: 'Dr. Test', PRPR_MCTR_TYPE: 'FFS', PRPR_TAXONOMY_CD: '207Q00000X',
+             PRPR_TERM_DT: null, ROW_HASH_VALUE: null, SYS_USUS_ID: 'SYS',
+             SYS_LAST_UPD_DTM: '2025-01-01', _SNOWFLAKE_INSERTED_AT: '2025-01-01',
+             _SNOWFLAKE_UPDATED_AT: '2025-01-01', _SNOWFLAKE_DELETED: false}
+          - {PRPR_ID: 1002, PRPR_ENTITY: 'O', PRPR_STS: 'SU', PRPR_NPI: '0987654321',
+             PRPR_NAME: 'Test Group', PRPR_MCTR_TYPE: 'CAP', PRPR_TAXONOMY_CD: null,
+             PRPR_TERM_DT: null, ROW_HASH_VALUE: null, SYS_USUS_ID: 'SYS',
+             SYS_LAST_UPD_DTM: '2025-01-01', _SNOWFLAKE_INSERTED_AT: '2025-01-01',
+             _SNOWFLAKE_UPDATED_AT: '2025-01-01', _SNOWFLAKE_DELETED: false}
+    expect:
+      rows:
+        - {PRPR_ID: 1001, PROVIDER_TYPE: 'Individual (Type 1)', STATUS_DESC: 'Active',
+           NPI_VALID: true, CONTRACT_TYPE: 'Fee for Service'}
+        - {PRPR_ID: 1002, PROVIDER_TYPE: 'Organization (Type 2)', STATUS_DESC: 'Suspended',
+           NPI_VALID: true, CONTRACT_TYPE: 'Capitation'}
+
+  - name: test_npi_validation_flag
+    description: "Non-10-digit or non-numeric NPI sets NPI_VALID=false"
+    model: stg_prpr_prov
+    given:
+      - input: source('raw', 'CMC_PRPR_PROV')
+        rows:
+          - {PRPR_ID: 2001, PRPR_NPI: '1234567890', PRPR_ENTITY: 'I', PRPR_STS: 'AC',
+             PRPR_NAME: 'Valid', PRPR_MCTR_TYPE: 'FFS', PRPR_TAXONOMY_CD: null,
+             PRPR_TERM_DT: null, ROW_HASH_VALUE: null, SYS_USUS_ID: 'SYS',
+             SYS_LAST_UPD_DTM: '2025-01-01', _SNOWFLAKE_INSERTED_AT: '2025-01-01',
+             _SNOWFLAKE_UPDATED_AT: '2025-01-01', _SNOWFLAKE_DELETED: false}
+          - {PRPR_ID: 2002, PRPR_NPI: '12345', PRPR_ENTITY: 'I', PRPR_STS: 'AC',
+             PRPR_NAME: 'Short NPI', PRPR_MCTR_TYPE: 'FFS', PRPR_TAXONOMY_CD: null,
+             PRPR_TERM_DT: null, ROW_HASH_VALUE: null, SYS_USUS_ID: 'SYS',
+             SYS_LAST_UPD_DTM: '2025-01-01', _SNOWFLAKE_INSERTED_AT: '2025-01-01',
+             _SNOWFLAKE_UPDATED_AT: '2025-01-01', _SNOWFLAKE_DELETED: false}
+          - {PRPR_ID: 2003, PRPR_NPI: 'ABCDEFGHIJ', PRPR_ENTITY: 'I', PRPR_STS: 'AC',
+             PRPR_NAME: 'Alpha NPI', PRPR_MCTR_TYPE: 'FFS', PRPR_TAXONOMY_CD: null,
+             PRPR_TERM_DT: null, ROW_HASH_VALUE: null, SYS_USUS_ID: 'SYS',
+             SYS_LAST_UPD_DTM: '2025-01-01', _SNOWFLAKE_INSERTED_AT: '2025-01-01',
+             _SNOWFLAKE_UPDATED_AT: '2025-01-01', _SNOWFLAKE_DELETED: false}
+    expect:
+      rows:
+        - {PRPR_ID: 2001, NPI_VALID: true}
+        - {PRPR_ID: 2002, NPI_VALID: false}
+        - {PRPR_ID: 2003, NPI_VALID: false}
+
+  - name: test_member_demo_key_deterministic
+    description: "Same demographics always produce the same DEMO_KEY (case-insensitive name match)"
+    model: stg_meme_member
+    given:
+      - input: source('raw', 'CMC_MEME_MEMBER')
+        rows:
+          - {MEME_ID: 3001, SBSB_ID: 100, MEME_LAST_NAME: 'SMITH',
+             MEME_FIRST_NAME: 'JOHN', MEME_DOB: '1980-05-15', MEME_SEX: 'M',
+             MEME_REL_CD: '01', MEME_STS: 'AC', MEME_MCTR_TYPE: 'HMO',
+             SYS_LAST_UPD_DTM: '2025-01-01', _SNOWFLAKE_UPDATED_AT: '2025-01-01',
+             _SNOWFLAKE_DELETED: false}
+          - {MEME_ID: 3002, SBSB_ID: 100, MEME_LAST_NAME: 'smith',
+             MEME_FIRST_NAME: 'john', MEME_DOB: '1980-05-15', MEME_SEX: 'M',
+             MEME_REL_CD: '01', MEME_STS: 'AC', MEME_MCTR_TYPE: 'HMO',
+             SYS_LAST_UPD_DTM: '2025-06-01', _SNOWFLAKE_UPDATED_AT: '2025-06-01',
+             _SNOWFLAKE_DELETED: false}
+    expect:
+      rows:
+        - {MEME_ID: 3001, DEMO_KEY: '0fdbb77cd74a8e8fe7e30e38eb3966c0'}
+        - {MEME_ID: 3002, DEMO_KEY: '0fdbb77cd74a8e8fe7e30e38eb3966c0'}
+
+  - name: test_soft_delete_passthrough
+    description: "IS_DELETED is passed through from source — deleted rows are not filtered at staging"
+    model: stg_prpr_prov
+    given:
+      - input: source('raw', 'CMC_PRPR_PROV')
+        rows:
+          - {PRPR_ID: 4001, PRPR_ENTITY: 'I', PRPR_STS: 'AC', PRPR_NPI: '1111111111',
+             PRPR_NAME: 'Active Prov', PRPR_MCTR_TYPE: 'FFS', PRPR_TAXONOMY_CD: null,
+             PRPR_TERM_DT: null, ROW_HASH_VALUE: null, SYS_USUS_ID: 'SYS',
+             SYS_LAST_UPD_DTM: '2025-01-01', _SNOWFLAKE_INSERTED_AT: '2025-01-01',
+             _SNOWFLAKE_UPDATED_AT: '2025-01-01', _SNOWFLAKE_DELETED: false}
+          - {PRPR_ID: 4002, PRPR_ENTITY: 'I', PRPR_STS: 'AC', PRPR_NPI: '2222222222',
+             PRPR_NAME: 'Deleted Prov', PRPR_MCTR_TYPE: 'FFS', PRPR_TAXONOMY_CD: null,
+             PRPR_TERM_DT: null, ROW_HASH_VALUE: null, SYS_USUS_ID: 'SYS',
+             SYS_LAST_UPD_DTM: '2025-01-01', _SNOWFLAKE_INSERTED_AT: '2025-01-01',
+             _SNOWFLAKE_UPDATED_AT: '2025-01-01', _SNOWFLAKE_DELETED: true}
+    expect:
+      rows:
+        - {PRPR_ID: 4001, IS_DELETED: false}
+        - {PRPR_ID: 4002, IS_DELETED: true}

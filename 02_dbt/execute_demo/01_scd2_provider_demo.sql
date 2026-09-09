@@ -1,0 +1,123 @@
+-- =============================================================================
+-- SCD TYPE 2 on Providers
+-- =============================================================================
+--Single record example dbt snapshots
+SELECT
+    PRPR_ID,
+    PRPR_NAME,
+    PRPR_STS,
+    PROVIDER_TYPE,
+    PRPR_TAXONOMY_CD,
+    CONTRACT_TYPE,
+    DBT_VALID_FROM,
+    DBT_VALID_TO,
+    CASE WHEN DBT_VALID_TO IS NULL THEN TRUE ELSE FALSE END AS IS_CURRENT
+FROM FACETS_DEV.SILVER.PROVIDER_SNAPSHOT
+WHERE PRPR_ID = 3390
+ORDER BY PRPR_ID, DBT_VALID_TO NULLS FIRST;
+
+--Show logic first
+--Streams and Tasks
+SELECT
+    PRPR_ID,
+    PRPR_NAME,
+    PRPR_STS,
+    PROVIDER_TYPE,
+    PRPR_TAXONOMY_CD,
+    CONTRACT_TYPE,
+    EFFECTIVE_FROM,
+    EFFECTIVE_TO,
+    IS_CURRENT
+FROM FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM
+WHERE PRPR_ID = 3390
+ORDER BY PRPR_ID, EFFECTIVE_TO NULLS FIRST;
+
+
+/*QUERY ENTIRE TABLES*/
+
+-- DBT Snapshots
+WITH PROV_WITH_HISTORY AS (
+    SELECT PRPR_ID, COUNT(*) AS VERSION_COUNT
+    FROM FACETS_DEV.SILVER.PROVIDER_SNAPSHOT
+    GROUP BY PRPR_ID
+    HAVING COUNT(*) > 1
+)
+
+SELECT
+    s.PRPR_ID,
+    s.PRPR_NAME,
+    s.PROVIDER_TYPE,
+    s.PRPR_STS,
+    s.PRPR_MCTR_TYPE,
+    s.PRPR_TAXONOMY_CD,
+    s.DBT_VALID_FROM,
+    s.DBT_VALID_TO,
+    COALESCE(h.VERSION_COUNT, 1) AS VERSION_COUNT,
+    CASE WHEN h.PRPR_ID IS NOT NULL THEN 1 else 0 END AS version_flag
+FROM 
+    FACETS_DEV.SILVER.PROVIDER_SNAPSHOT AS s
+    LEFT JOIN PROV_WITH_HISTORY AS h 
+        ON s.PRPR_ID = h.PRPR_ID
+ORDER BY
+    version_flag desc, 
+    h.VERSION_COUNT DESC NULLS LAST,
+    s.PRPR_ID,
+    s.DBT_VALID_TO NULLS FIRST;
+
+
+-- Via Stream
+WITH PROV_WITH_HISTORY AS (
+    SELECT PRPR_ID, COUNT(*) AS VERSION_COUNT
+    FROM FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM
+    GROUP BY PRPR_ID
+    HAVING COUNT(*) > 1
+)
+
+SELECT
+    s.PRPR_ID,
+    s.PRPR_NAME,
+    s.PROVIDER_TYPE,
+    s.PRPR_STS,
+    s.PRPR_MCTR_TYPE,
+    s.PRPR_TAXONOMY_CD,
+    s.EFFECTIVE_FROM,
+    s.EFFECTIVE_TO,
+    s.IS_CURRENT,
+    COALESCE(h.VERSION_COUNT, 1) AS VERSION_COUNT,
+    CASE WHEN h.PRPR_ID IS NOT NULL THEN 1 else 0 END AS version_flag
+FROM 
+    FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM AS s
+    LEFT JOIN PROV_WITH_HISTORY AS h 
+        ON s.PRPR_ID = h.PRPR_ID
+ORDER BY
+    version_flag desc, 
+    h.VERSION_COUNT DESC NULLS LAST,
+    s.PRPR_ID,
+    s.EFFECTIVE_TO NULLS FIRST;
+
+
+
+
+
+
+
+-- =============================================================================
+-- QUERY 1A: Spot-check — known changed providers in PROVIDER_SNAPSHOT (dbt)
+-- =============================================================================
+
+
+
+
+-- =============================================================================
+-- QUERY 1B: Spot-check — same providers in PROVIDER_SCD2_VIA_STREAM (stream/task)
+-- =============================================================================
+
+
+
+
+
+
+
+
+
+

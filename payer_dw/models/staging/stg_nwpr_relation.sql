@@ -1,0 +1,22 @@
+WITH source AS (
+    SELECT * FROM {{ source('raw', 'CMC_NWPR_RELATION') }}
+)
+SELECT
+    NWPR_ID,
+    PRPR_ID,
+    NWNW_ID,
+    AGAG_ID,
+    NWPR_EFF_DT,
+    NWPR_TERM_DT,
+    CASE
+        WHEN NWPR_TERM_DT IS NULL OR NWPR_TERM_DT >= CURRENT_DATE
+        THEN TRUE ELSE FALSE
+    END                             AS IS_ACTIVE_PARTICIPATION,
+    NWPR_PCP_IND,
+    NWPR_DIRECTORY_IND,
+    NWPR_ACC_PAT_IND,
+    NWPR_ACC_MEDCD_IND,
+    SYS_LAST_UPD_DTM,
+    _SNOWFLAKE_UPDATED_AT           AS updated_at,
+    _SNOWFLAKE_DELETED              AS IS_DELETED
+FROM source

@@ -1,0 +1,106 @@
+name: dbt CI/CD — payer_dw
+
+# push → dev:          deploy PAYER_DW_DEV + build --target dev  (dev-isolated)
+# pull_request → main: deploy PAYER_DW (stable) + dev + qa + prod (full gate)
+# workflow_dispatch:   manual deploy PAYER_DW_DEV + dev build
+#
+# Two-project isolation:
+#   PAYER_DW_DEV  ← dev branch code  → DBT_REFRESH_TASK_DEV → FACETS_DEV
+#   PAYER_DW      ← main branch code → DBT_REFRESH_TASK_QA/PROD → FACETS_QA/PROD
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'payer_dw/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'payer_dw/**'
+  workflow_dispatch:
+
+# Cancel any in-progress run for the same ref when a new push arrives.
+concurrency:
+  group: dbt-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Job 1: always runs (push → dev, PR → main, manual) ─────────────────────
+  # Deploys and validates the dev project object (PAYER_DW_DEV).
+  deploy-and-dev:
+    name: Deploy PAYER_DW_DEV + dbt build (dev)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Snowflake-Labs/snowflake-cli-action@v2
+
+      - name: Configure Snowflake connection
+        run: |
+          mkdir -p ~/.snowflake
+          cat > ~/.snowflake/config.toml << EOF
+          [connections.ci]
+          account = "${{ secrets.SNOWFLAKE_ACCOUNT }}"
+          user = "${{ secrets.SNOWFLAKE_USER }}"
+          authenticator = "programmatic_access_token"
+          token = "${{ secrets.SNOWFLAKE_PAT }}"
+          role = "ACCOUNTADMIN"
+          warehouse = "WH_SMALL"
+          EOF
+          chmod 0600 ~/.snowflake/config.toml
+
+      - name: Deploy dbt project — dev object (PAYER_DW_DEV)
+        run: |
+          cd payer_dw && snow dbt deploy -c ci \
+            --database ANALYTICS_ADMIN --schema PROJECTS \
+            payer_dw_dev
+
+      - name: dbt build — dev (FACETS_DEV)
+        run: |
+          snow dbt execute -c ci \
+            --database ANALYTICS_ADMIN --schema PROJECTS \
+            PAYER_DW_DEV build --target dev --exclude provider_office_hours
+
+  # ─── Job 2: PR to main only — deploys stable object + gates qa + prod ────────
+  # Independent job: deploys to PAYER_DW (stable/main) then runs qa + prod.
+  # Does NOT depend on Job 1 — the two jobs deploy to different project objects.
+  deploy-stable-qa-prod:
+    name: Deploy PAYER_DW + dbt build (qa + prod)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Snowflake-Labs/snowflake-cli-action@v2
+
+      - name: Configure Snowflake connection
+        run: |
+          mkdir -p ~/.snowflake
+          cat > ~/.snowflake/config.toml << EOF
+          [connections.ci]
+          account = "${{ secrets.SNOWFLAKE_ACCOUNT }}"
+          user = "${{ secrets.SNOWFLAKE_USER }}"
+          authenticator = "programmatic_access_token"
+          token = "${{ secrets.SNOWFLAKE_PAT }}"
+          role = "ACCOUNTADMIN"
+          warehouse = "WH_SMALL"
+          EOF
+          chmod 0600 ~/.snowflake/config.toml
+
+      - name: Deploy dbt project — stable object (PAYER_DW)
+        run: |
+          cd payer_dw && snow dbt deploy -c ci \
+            --database ANALYTICS_ADMIN --schema PROJECTS \
+            payer_dw
+
+      - name: dbt build — qa (FACETS_QA)
+        run: |
+          snow dbt execute -c ci \
+            --database ANALYTICS_ADMIN --schema PROJECTS \
+            PAYER_DW build --target qa
+
+      - name: dbt build — prod (FACETS_PROD)
+        run: |
+          snow dbt execute -c ci \
+            --database ANALYTICS_ADMIN --schema PROJECTS \
+            PAYER_DW build --target prod

@@ -1,6 +1,6 @@
 # flat_file_ingestion
 
-Synthetic flat file demo data for the CalOptima RFP 26-038 demo.
+Synthetic flat file demo data for the Payer RFP 26-038 demo.
 
 ## Files
 

@@ -14,7 +14,7 @@ CREATE OR REPLACE WAREHOUSE WH_ENTERPRISE_ANALYTICS
     WAREHOUSE_SIZE = MEDIUM
     AUTO_SUSPEND   = 30
     AUTO_RESUME    = TRUE
-    COMMENT        = 'CalOptima performance demo — resize during demo to show elastic scaling';
+    COMMENT        = 'Payer performance demo — resize during demo to show elastic scaling';
 
 USE WAREHOUSE WH_ENTERPRISE_ANALYTICS;
 -- USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF1; --scale factor of 1

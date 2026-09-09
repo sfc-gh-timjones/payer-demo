@@ -3,9 +3,9 @@
 -- Complex joins and statistical aggregations on a Medium warehouse.
 -- =============================================================================
 
-USE ROLE CALOPTIMA_ML_ROLE;
+USE ROLE PAYER_ML_ROLE;
 USE SECONDARY ROLES NONE;
-USE WAREHOUSE CALOPTIMA_ML_WH;
+USE WAREHOUSE PAYER_ML_WH;
 USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF100;
 
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;

@@ -1,7 +1,7 @@
 -- =============================================================================
 -- FILE: 06_schema_change_mssql.sql
 -- PURPOSE: Simulate a source schema change on CMC_PRTP_PROV_TYPE in Azure SQL Server.
---          This is the demo script for Scenario 3 (Schema Drift) in the CalOptima
+--          This is the demo script for Scenario 3 (Schema Drift) in the Payer
 --          RFP 26-038 demonstration.
 --
 -- FACETS NAMING CONVENTION:
@@ -43,7 +43,7 @@ GO
 
 -- Add a column
 ALTER TABLE raw.CMC_PRTP_PROV_TYPE
-    ADD PRTP_EFFECTIVE_DT DATE NULL;      -- PRTP_EFFECTIVE_DT: date this provider type became active in CalOptima's system
+    ADD PRTP_EFFECTIVE_DT DATE NULL;      -- PRTP_EFFECTIVE_DT: date this provider type became active in Payer's system
 GO
 
 -- =============================================================================
@@ -66,7 +66,7 @@ GO
 -- STEP 4: DML changes on existing seeded rows (PRTP_ID 1–15)
 -- =============================================================================
 
--- UPDATE: PRTP_ID 7 — rename to reflect rehabilitation services CalOptima covers
+-- UPDATE: PRTP_ID 7 — rename to reflect rehabilitation services Payer covers
 UPDATE raw.CMC_PRTP_PROV_TYPE
 SET    PRTP_DESC = 'Skilled Nursing & Rehabilitation Facility'
 WHERE  PRTP_ID = 7;

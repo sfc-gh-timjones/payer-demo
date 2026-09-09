@@ -34,7 +34,7 @@ ORDER BY PROF_DAY_OF_WK;
 --         (skip if damage is already present from a prior run)
 -- =============================================================================
 
-EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW_DEV
+EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.PAYER_DW_DEV
     ARGS = 'run --select provider_office_hours --target dev';
 
 -- Capture query ID of last run

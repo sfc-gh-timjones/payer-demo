@@ -1,7 +1,7 @@
-name: caloptima_dw
+name: payer_dw
 version: '1.0.0'
 config-version: 2
-profile: caloptima_dw
+profile: payer_dw
 
 model-paths:    ["models"]
 test-paths:     ["tests"]
@@ -10,7 +10,7 @@ analysis-paths: ["analysis"]
 snapshot-paths: ["snapshots"]
 
 models:
-  caloptima_dw:
+  payer_dw:
     staging:
       +materialized: view
       +schema: STAGING
@@ -30,6 +30,6 @@ models:
       +schema: DQ
 
 snapshots:
-  caloptima_dw:
+  payer_dw:
     +target_schema: SILVER
     +transient: false

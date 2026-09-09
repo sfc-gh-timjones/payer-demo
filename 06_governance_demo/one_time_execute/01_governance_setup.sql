@@ -1,6 +1,6 @@
 -- =============================================================================
 -- FILE: 01_governance_setup.sql
--- PURPOSE: CalOptima RFP 26-038 | Topic 4 (Data Governance) + Topic 5 (Security)
+-- PURPOSE: Payer RFP 26-038 | Topic 4 (Data Governance) + Topic 5 (Security)
 --          Teardown + rebuild — safe to run repeatedly. Every execution drops all
 --          demo objects and rebuilds from scratch. Run top-to-bottom as ACCOUNTADMIN.
 --
@@ -29,7 +29,7 @@
 
 -- =============================================================================
 -- TEARDOWN — runs first on every execution
--- Drops all CalOptima governance demo objects. Safe to run on first run (all
+-- Drops all Payer governance demo objects. Safe to run on first run (all
 -- statements guarded with IF EXISTS). Dropping the databases cascades and removes
 -- all schemas, tables, tags, masking policies, row access policies, functions,
 -- and classification profiles contained within them — no manual detaching needed.
@@ -49,7 +49,7 @@ DROP ROLE IF EXISTS BUSINESS_ANALYST_ROLE;
 DROP ROLE IF EXISTS ANALYTICS_INNOVATOR_ROLE;
 DROP ROLE IF EXISTS DATA_ENGINEER_ROLE;
 
-SELECT 'Teardown complete — CalOptima governance demo objects removed. Rebuilding...' AS status;
+SELECT 'Teardown complete — Payer governance demo objects removed. Rebuilding...' AS status;
 
 
 -- =============================================================================
@@ -103,7 +103,7 @@ CREATE SCHEMA IF NOT EXISTS GOVERNANCE_CA_DEMO.POLICY_STORE
 
 
 -- =============================================================================
--- SECTION B: DATA_CLASSIFICATION TAG + CALOPTIMA CLASSIFICATION PROFILE
+-- SECTION B: DATA_CLASSIFICATION TAG + PAYER CLASSIFICATION PROFILE
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -116,10 +116,10 @@ USE SCHEMA POLICY_STORE;
 --   view dependencies. Engineers cannot create untagged PHI copies.
 CREATE OR REPLACE TAG GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION
     ALLOWED_VALUES 'PII', 'RESTRICTED', 'SENSITIVE', 'INTERNAL', 'PUBLIC'
-    COMMENT = 'CalOptima enterprise PHI/PII classification. HIPAA/CCPA/GDPR. Propagates on dependency and data movement.'
+    COMMENT = 'Payer enterprise PHI/PII classification. HIPAA/CCPA/GDPR. Propagates on dependency and data movement.'
     PROPAGATE = ON_DEPENDENCY_AND_DATA_MOVEMENT;
 
--- ── CALOPTIMA_CLASSIFICATION_PROFILE ────────────────────────────────────────
+-- ── PAYER_CLASSIFICATION_PROFILE ────────────────────────────────────────
 -- Snowflake AI maps semantic categories to DATA_CLASSIFICATION tag values.
 -- Applied to zFACETS_DEV_CLONE — used for the live SYSTEM$CLASSIFY discovery demo.
 --
@@ -144,7 +144,7 @@ CREATE OR REPLACE TAG GOVERNANCE_CA_DEMO.POLICY_STORE.DATA_CLASSIFICATION
 --   SENSITIVE  → GDPR Art.6 (legitimate interest), HIPAA §164.514(b) safe harbor
 --   INTERNAL   → SOX controls, low-risk business data
 CREATE OR REPLACE SNOWFLAKE.DATA_PRIVACY.CLASSIFICATION_PROFILE
-    GOVERNANCE_CA_DEMO.POLICY_STORE.CALOPTIMA_CLASSIFICATION_PROFILE(
+    GOVERNANCE_CA_DEMO.POLICY_STORE.PAYER_CLASSIFICATION_PROFILE(
     {
       'minimum_object_age_for_classification_days': 0,
       'maximum_classification_validity_days': 90,
@@ -205,7 +205,7 @@ USE ROLE ACCOUNTADMIN;
 -- Attach classification profile to the clone database (auto-tags on schedule)
 ALTER DATABASE zFACETS_DEV_CLONE
     SET CLASSIFICATION_PROFILE =
-        'GOVERNANCE_CA_DEMO.POLICY_STORE.CALOPTIMA_CLASSIFICATION_PROFILE';
+        'GOVERNANCE_CA_DEMO.POLICY_STORE.PAYER_CLASSIFICATION_PROFILE';
 
 -- Grant clone access to DATA_ENGINEER_ROLE for the tag-propagation demo step
 GRANT USAGE ON DATABASE zFACETS_DEV_CLONE               TO ROLE DATA_ENGINEER_ROLE;
@@ -217,7 +217,7 @@ GRANT CREATE TABLE ON SCHEMA zFACETS_DEV_CLONE.SILVER    TO ROLE DATA_ENGINEER_R
 -- (auto_tag: true — this is what the demo's discovery beat shows the results of)
 CALL SYSTEM$CLASSIFY(
     'zFACETS_DEV_CLONE.SILVER.MEMBER',
-    'GOVERNANCE_CA_DEMO.POLICY_STORE.CALOPTIMA_CLASSIFICATION_PROFILE'
+    'GOVERNANCE_CA_DEMO.POLICY_STORE.PAYER_CLASSIFICATION_PROFILE'
 );
 
 
@@ -437,7 +437,7 @@ USE DATABASE GOVERNANCE_CA_DEMO;
 USE SCHEMA POLICY_STORE;
 
 -- Plan type definitions (MEME_MCTR_TYPE values in MEMBER_PHI):
---   COMM    → Commercial — employer-sponsored or individual managed care (CalOptima Access)
+--   COMM    → Commercial — employer-sponsored or individual managed care (Payer Access)
 --   DSNP    → Dual Special Needs Plan — Medicare + Medi-Cal dual-eligible members
 --   MEDCAID → Medi-Cal — California Medicaid; heightened privacy sensitivity because
 --             enrollment reveals low-income or disability status (HIPAA minimum necessary)
@@ -556,4 +556,4 @@ GRANT SELECT ON TABLE GOVERNANCE_CA_DEMO.POLICY_STORE.ACCOUNT_ACCESS_HISTORY
 -- =============================================================================
 
 USE ROLE ACCOUNTADMIN;
-SELECT 'Setup complete — CalOptima governance demo deployed successfully.' AS status;
+SELECT 'Setup complete — Payer governance demo deployed successfully.' AS status;

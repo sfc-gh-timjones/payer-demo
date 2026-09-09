@@ -24,7 +24,7 @@ USE WAREHOUSE WH_XS;
 CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(100);
 DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(INTEGER);
 DROP PROCEDURE IF EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.cleanup_concurrent_users(INTEGER);
-DROP WAREHOUSE IF EXISTS CALOPTIMA_CONCURRENCY_WH;
+DROP WAREHOUSE IF EXISTS PAYER_CONCURRENCY_WH;
 
 SELECT 'Cleanup complete — ready to rebuild.' AS status;
 
@@ -36,19 +36,19 @@ SELECT 'Cleanup complete — ready to rebuild.' AS status;
 CREATE DATABASE IF NOT EXISTS SNOWFLAKE_SAMPLE_DATA2;
 CREATE SCHEMA IF NOT EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100;
 
-CREATE OR REPLACE WAREHOUSE CALOPTIMA_SETUP_WH
+CREATE OR REPLACE WAREHOUSE PAYER_SETUP_WH
     WAREHOUSE_SIZE = SMALL
     AUTO_SUSPEND   = 30
     AUTO_RESUME    = TRUE;
 
-USE WAREHOUSE CALOPTIMA_SETUP_WH;
+USE WAREHOUSE PAYER_SETUP_WH;
 
 CREATE TABLE IF NOT EXISTS SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.LINEITEM
     AS SELECT * FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF100.LINEITEM;
 
 SELECT COUNT(*) AS lineitem_rows FROM SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.LINEITEM;
 
-DROP WAREHOUSE IF EXISTS CALOPTIMA_SETUP_WH;
+DROP WAREHOUSE IF EXISTS PAYER_SETUP_WH;
 USE WAREHOUSE WH_XS;
 
 SELECT 'Data ready — SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.LINEITEM.' AS status;
@@ -87,7 +87,7 @@ def handler(session, user_count):
     for i in range(1, user_count + 1):
         task_name = f"CONCURRENT_USER_{i:02d}"
         session.sql(f"EXECUTE TASK SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.{task_name}").collect()
-    return f"{user_count} concurrent users submitted to CALOPTIMA_CONCURRENCY_WH"
+    return f"{user_count} concurrent users submitted to PAYER_CONCURRENCY_WH"
 $$;
 
 SELECT 'Procedures ready.' AS status;
@@ -112,7 +112,7 @@ def handler(session, user_count):
     benchmark_sql = """
         SELECT
             RANDOM()                                               AS run_id,
-            /* CALOPTIMA_CONCURRENCY_DEMO */ L_RETURNFLAG,
+            /* PAYER_CONCURRENCY_DEMO */ L_RETURNFLAG,
             L_LINESTATUS,
             SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT))               AS net_revenue,
             SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT) * (1 + L_TAX)) AS total_charge,
@@ -127,7 +127,7 @@ def handler(session, user_count):
         task_name = f"CONCURRENT_USER_{i:02d}"
         session.sql(f"""
             CREATE OR REPLACE TASK SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.{task_name}
-                WAREHOUSE                  = CALOPTIMA_CONCURRENCY_WH
+                WAREHOUSE                  = PAYER_CONCURRENCY_WH
                 SCHEDULE                   = 'USING CRON 0 0 31 12 * UTC'
                 ALLOW_OVERLAPPING_EXECUTION = TRUE
             AS

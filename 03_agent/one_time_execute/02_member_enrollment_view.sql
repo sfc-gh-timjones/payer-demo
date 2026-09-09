@@ -1,5 +1,5 @@
 -- =============================================================
--- CalOptima Agent Demo - Step 2: MEMBER_ENROLLMENT flat view
+-- Payer Agent Demo - Step 2: MEMBER_ENROLLMENT flat view
 -- Joins MEMBER + ELIGIBILITY (deduped) + PROVIDER into 1 row/member
 -- =============================================================
 

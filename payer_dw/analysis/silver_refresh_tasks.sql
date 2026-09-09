@@ -27,7 +27,7 @@
 --   guaranteeing dbt snapshot sees the same data the stream task just processed.
 --
 -- Requires: streams on Bronze CMC_PRPR_PROV (DEV/QA/PROD variants), dbt project
---           objects CALOPTIMA_DW + CALOPTIMA_DW_DEV deployed via CI.
+--           objects PAYER_DW + PAYER_DW_DEV deployed via CI.
 -- Run this SQL in Snowsight as ACCOUNTADMIN.
 -- =============================================================================
 
@@ -63,7 +63,7 @@ CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV
     COMMENT   = 'Runs dbt build against FACETS_DEV after Bronze changes confirmed in DEV stream'
     AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_DEV
 AS
-    EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW_DEV
+    EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.PAYER_DW_DEV
         ARGS = 'build --target dev --select provider_snapshot provider member eligibility rejected_providers dup_metrics dq_row_counts';
 
 
@@ -83,7 +83,7 @@ CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA
     COMMENT   = 'Runs dbt build against FACETS_QA after Bronze changes confirmed in QA stream'
     AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_QA
 AS
-    EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
+    EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.PAYER_DW
         ARGS = 'build --target qa --select provider_snapshot provider member eligibility rejected_providers dup_metrics dq_row_counts';
 
 
@@ -103,7 +103,7 @@ CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD
     COMMENT   = 'Runs dbt build against FACETS_PROD after Bronze changes confirmed in PROD stream'
     AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_PROD
 AS
-    EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
+    EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.PAYER_DW
         ARGS = 'build --target prod --select provider_snapshot provider member eligibility rejected_providers dup_metrics dq_row_counts';
 
 

@@ -4,9 +4,9 @@
 --          that can be manually triggered via EXECUTE TASK.
 --
 -- These tasks run dbt build against each environment:
---   DBT_REFRESH_TASK_DEV  → CALOPTIMA_DW_DEV (dev branch) → FACETS_DEV
---   DBT_REFRESH_TASK_QA   → CALOPTIMA_DW     (main branch) → FACETS_QA
---   DBT_REFRESH_TASK_PROD → CALOPTIMA_DW     (main branch) → FACETS_PROD
+--   DBT_REFRESH_TASK_DEV  → PAYER_DW_DEV (dev branch) → FACETS_DEV
+--   DBT_REFRESH_TASK_QA   → PAYER_DW     (main branch) → FACETS_QA
+--   DBT_REFRESH_TASK_PROD → PAYER_DW     (main branch) → FACETS_PROD
 --
 -- NOTE: Tasks are chained AFTER their matching stream task (child of stream root).
 --       Resume order: child (dbt) first, then root (stream) — Snowflake requirement.
@@ -28,31 +28,31 @@ ALTER TASK FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_PROD   SUSPEND;
 -- Create tasks
 -- =============================================================================
 
--- DEV → FACETS_DEV (uses CALOPTIMA_DW_DEV — dev branch code)
+-- DEV → FACETS_DEV (uses PAYER_DW_DEV — dev branch code)
 CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_DEV
     WAREHOUSE = WH_XS
-    COMMENT   = 'Runs dbt build against FACETS_DEV using CALOPTIMA_DW_DEV project'
+    COMMENT   = 'Runs dbt build against FACETS_DEV using PAYER_DW_DEV project'
     AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_DEV
 AS
-    EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW_DEV
+    EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.PAYER_DW_DEV
         ARGS = 'build --target dev --select provider_snapshot provider member eligibility rejected_providers dup_metrics dq_row_counts';
 
--- QA → FACETS_QA (uses CALOPTIMA_DW — stable/main code)
+-- QA → FACETS_QA (uses PAYER_DW — stable/main code)
 CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_QA
     WAREHOUSE = WH_XS
-    COMMENT   = 'Runs dbt build against FACETS_QA using CALOPTIMA_DW project'
+    COMMENT   = 'Runs dbt build against FACETS_QA using PAYER_DW project'
     AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_QA
 AS
-    EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
+    EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.PAYER_DW
         ARGS = 'build --target qa --select provider_snapshot provider member eligibility rejected_providers dup_metrics dq_row_counts';
 
--- PROD → FACETS_PROD (uses CALOPTIMA_DW — stable/main code)
+-- PROD → FACETS_PROD (uses PAYER_DW — stable/main code)
 CREATE OR REPLACE TASK FACETS_BRONZE.UTILS.DBT_REFRESH_TASK_PROD
     WAREHOUSE = WH_XS
-    COMMENT   = 'Runs dbt build against FACETS_PROD using CALOPTIMA_DW project'
+    COMMENT   = 'Runs dbt build against FACETS_PROD using PAYER_DW project'
     AFTER     FACETS_BRONZE.UTILS.PROVIDER_SCD2_STREAM_TASK_PROD
 AS
-    EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW
+    EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.PAYER_DW
         ARGS = 'build --target prod --select provider_snapshot provider member eligibility rejected_providers dup_metrics dq_row_counts';
 
 -- =============================================================================

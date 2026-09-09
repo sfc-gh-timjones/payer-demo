@@ -1,7 +1,7 @@
 -- =============================================================================
 -- FILE: 03_OF_force_error.sql
 -- PURPOSE: Force a change tracking permission error to demonstrate Openflow
---          error handling and recovery in the CalOptima RFP 26-038 demo.
+--          error handling and recovery in the Payer RFP 26-038 demo.
 --
 -- DEMO FLOW:
 --   1. REVOKE VIEW CHANGE TRACKING → Openflow throws a permission error

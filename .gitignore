@@ -5,11 +5,11 @@ zz_naming_conventions_old/
 facets_demo/
 **/z_legacy_ignore/
 
-# dbt artifacts (in caloptima_dw)
-caloptima_dw/target/
-caloptima_dw/dbt_packages/
-caloptima_dw/logs/
-caloptima_dw/static_index.html
+# dbt artifacts (in payer_dw)
+payer_dw/target/
+payer_dw/dbt_packages/
+payer_dw/logs/
+payer_dw/static_index.html
 **/static_index.html
 
 # Streamlit deploy artifacts

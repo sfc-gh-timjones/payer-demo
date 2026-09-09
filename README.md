@@ -1,6 +1,6 @@
-# CalOptima — Snowflake Demo Environment
+# Payer — Snowflake Demo Environment
 
-This repo is a complete Sales Engineering demo environment for **CalOptima**. It demonstrates Snowflake's capabilities across seven scenarios using synthetic [TriZetto Facets](https://www.trizetto.com/products/facets/) health plan data replicated in real time from Azure SQL Server via Openflow.
+This repo is a complete Sales Engineering demo environment for a healthcare payer. It demonstrates Snowflake's capabilities across seven scenarios using synthetic [TriZetto Facets](https://www.trizetto.com/products/facets/) health plan data replicated in real time from Azure SQL Server via Openflow.
 
 A colleague starting fresh should be able to rebuild the entire environment by following the setup order in this document.
 
@@ -55,8 +55,8 @@ FACETS_DEV / QA / PROD        ← Silver + Gold (dbt manages these)
 
 | Git event | Deploys to | Runs against |
 |---|---|---|
-| `push → dev` | `CALOPTIMA_DW_DEV` | `FACETS_DEV` |
-| `merge → main` (PR) | `CALOPTIMA_DW` | `FACETS_QA` + `FACETS_PROD` |
+| `push → dev` | `PAYER_DW_DEV` | `FACETS_DEV` |
+| `merge → main` (PR) | `PAYER_DW` | `FACETS_QA` + `FACETS_PROD` |
 
 A broken dev commit only affects `FACETS_DEV` — QA and PROD keep running the last stable main-branch code. See [`02_dbt/one_time_execute/99_dbt_projects_and_environments.md`](02_dbt/one_time_execute/99_dbt_projects_and_environments.md) for the full architecture doc.
 
@@ -142,15 +142,15 @@ The latency alert deploys `FACETS_LATENCY_CHECK` + `FACETS_LATENCY_TASK` — che
 
 1. Fork/clone this repo, push to the `dev` branch
 2. Set GitHub Actions secrets: `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_PAT`
-3. A push to `dev` automatically runs `.github/workflows/dbt_ci.yml` which deploys `CALOPTIMA_DW_DEV` and runs `dbt build --target dev --exclude provider_office_hours`
-4. Merge to `main` deploys `CALOPTIMA_DW` and runs qa + prod builds
+3. A push to `dev` automatically runs `.github/workflows/dbt_ci.yml` which deploys `PAYER_DW_DEV` and runs `dbt build --target dev --exclude provider_office_hours`
+4. Merge to `main` deploys `PAYER_DW` and runs qa + prod builds
 
-> **Why `--exclude provider_office_hours`?** The dev branch intentionally carries bad code in that model for the CI/CD rollback demo. Excluding it from the CI build means the bad code gets deployed to `CALOPTIMA_DW_DEV` but never runs automatically — it only runs when you manually trigger it during Step 2 of the demo.
+> **Why `--exclude provider_office_hours`?** The dev branch intentionally carries bad code in that model for the CI/CD rollback demo. Excluding it from the CI build means the bad code gets deployed to `PAYER_DW_DEV` but never runs automatically — it only runs when you manually trigger it during Step 2 of the demo.
 
 To manually deploy without CI:
 
 ```bash
-cd caloptima_dw && snow dbt deploy caloptima_dw_dev --database ANALYTICS_ADMIN --schema PROJECTS
+cd payer_dw && snow dbt deploy payer_dw_dev --database ANALYTICS_ADMIN --schema PROJECTS
 ```
 
 ### Step 9 — Rebuild the Stream+Task SCD2 pipeline
@@ -235,7 +235,7 @@ Set up once in Snowflake:
 CREATE DATABASE IF NOT EXISTS DEMO_DEPLOY;
 CREATE SCHEMA  IF NOT EXISTS DEMO_DEPLOY.GIT;
 
-CREATE GIT REPOSITORY DEMO_DEPLOY.GIT.CALOPTIMA_REPO
+CREATE GIT REPOSITORY DEMO_DEPLOY.GIT.PAYER_REPO
     API_INTEGRATION = MY_GIT_API_INTEGRATION
     GIT_CREDENTIALS = POLICY_SETTINGS.POLICY_SCHEMA.MY_GIT_SECRET
     ORIGIN = 'https://github.com/sfc-gh-timjones/caloptima';
@@ -254,7 +254,7 @@ Run **`one_time_pre_demo_snow.sql`** (at the repo root) before every demo. It is
 
 | Section | What it does |
 |---|---|
-| 1. Git repo | Creates `DEMO_DEPLOY.GIT.CALOPTIMA_REPO` if not present; fetches latest commits |
+| 1. Git repo | Creates `DEMO_DEPLOY.GIT.PAYER_REPO` if not present; fetches latest commits |
 | 2. Openflow Snowflake revert | Drops `CMC_PRTP_PROV_TYPE` and any JOURNAL tables from `FACETS_BRONZE.RAW` |
 | 3. Openflow SQL Server revert | Calls `OPENFLOW_SCHEMA_REVERT_MSSQL` — restores PRTP_ID 2 and 7, deletes rows ≥9001, drops the added column, re-grants `VIEW CHANGE TRACKING` |
 | 4. dbt clean rebuild | Rebuilds `FACETS_DEV.SILVER.PROVIDER_OFFICE_HOURS` from staging with clean data (counteracts the intentionally bad code in dev branch) |
@@ -452,14 +452,14 @@ Reads from `OPENFLOW.TELEMETRY.EVENTS` (Openflow sets this automatically as the 
 
 | Folder | Contents |
 |---|---|
-| `caloptima_dw/` | The dbt project itself: models, tests, snapshots, macros, profiles. This is what CI deploys and what `dbt build` runs. |
+| `payer_dw/` | The dbt project itself: models, tests, snapshots, macros, profiles. This is what CI deploys and what `dbt build` runs. |
 | `02_dbt/` | Demo execution scripts and one-time setup SQL. Not part of the dbt project — these are Snowflake SQL files you run in Snowsight. |
 
 **What it shows:** dbt native SCD2 snapshots, stream+task SCD2, CI/CD pipeline with two project objects, Time Travel for data recovery without waiting for a code fix.
 
 #### Background: the intentionally bad code
 
-`caloptima_dw/models/silver/provider_office_hours.sql` has **bad code committed to the dev branch on purpose**:
+`payer_dw/models/silver/provider_office_hours.sql` has **bad code committed to the dev branch on purpose**:
 
 ```sql
 -- Active in dev branch:
@@ -467,7 +467,7 @@ Reads from `OPENFLOW.TELEMETRY.EVENTS` (Openflow sets this automatically as the 
 PROF_ID % 2 = 0                               -- only processes half the rows (incremental filter)
 ```
 
-This bad code is deployed to `CALOPTIMA_DW_DEV` but **never automatically runs** — it is excluded from CI and all scheduled tasks via `--exclude provider_office_hours`. The only time it runs is when you manually trigger it during Step 2 of the rollback demo.
+This bad code is deployed to `PAYER_DW_DEV` but **never automatically runs** — it is excluded from CI and all scheduled tasks via `--exclude provider_office_hours`. The only time it runs is when you manually trigger it during Step 2 of the rollback demo.
 
 #### `execute_pre_demo/`
 
@@ -485,7 +485,7 @@ This bad code is deployed to `CALOPTIMA_DW_DEV` but **never automatically runs**
 
 ```
 Step 1: SELECT — show clean data (5 weekdays MON–FRI, no 'Bad Data Inserted Here')
-Step 2: EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.CALOPTIMA_DW_DEV
+Step 2: EXECUTE DBT PROJECT ANALYTICS_ADMIN.PROJECTS.PAYER_DW_DEV
         ARGS = 'run --select provider_office_hours --target dev'
         SET bad_run_id = LAST_QUERY_ID();    ← capture immediately
 Step 3: SELECT — show ~1,981 rows corrupted with 'Bad Data Inserted Here'
@@ -545,7 +545,7 @@ The files map to individual Snowsight worksheet tabs in the workload isolation d
 | `01_warehouse_sizing.sql` | Scale-up: resize MEDIUM→XL, watch TPC-H Q1 (600M rows) get faster |
 | `02_MCW.sql` / `02_MCW2.sql` | Multi-cluster warehouse: fire 100 concurrent users, show automatic cluster scale-out |
 | `03__workload_isolation_setup.sql` | Creates 4 separate warehouses for exec/analyst/finance/ML roles |
-| `03_tab1_exec.sql` | Executive persona queries on dedicated `CALOPTIMA_EXEC_WH` |
+| `03_tab1_exec.sql` | Executive persona queries on dedicated `PAYER_EXEC_WH` |
 | `03_tab3_analyst.sql` | Analyst persona on dedicated warehouse |
 | `03_tab4_finance.sql` | Finance persona on dedicated warehouse |
 | `03_tab5_ml.sql` | ML persona on dedicated warehouse |
@@ -587,7 +587,7 @@ Custom DMFs created:
 `01_governance_setup.sql` (~560 lines) — run once. Creates:
 - 3 demo roles: `DATA_ENGINEER_ROLE`, `ANALYTICS_INNOVATOR_ROLE`, `BUSINESS_ANALYST_ROLE`
 - `zFACETS_DEV_CLONE` (zero-copy clone) for the demo
-- `CALOPTIMA_CLASSIFICATION_PROFILE` with auto-tag enabled
+- `PAYER_CLASSIFICATION_PROFILE` with auto-tag enabled
 - Tag `DATA_CLASSIFICATION` with 5 values (PII/RESTRICTED/SENSITIVE/INTERNAL/PUBLIC)
 - 3 masking policies using `phi_full_access()` UDF as the single privilege-check source
 - Row access policy `MEMBER_PLAN_ACCESS_POLICY`: DATA_ENGINEER sees all, ANALYTICS_INNOVATOR sees COMM+DSNP, BUSINESS_ANALYST sees COMM only
@@ -614,7 +614,7 @@ Custom DMFs created:
 | `FACETS_DEV` | dbt (dev target) | Active dev Silver/Gold/Staging/DQ. Used in all demos. |
 | `FACETS_QA` | dbt (qa target) | Pre-merge validation gate. |
 | `FACETS_PROD` | dbt (prod target) | Stable production. Main branch code only. |
-| `ANALYTICS_ADMIN.PROJECTS` | Snowflake native dbt | Hosts `CALOPTIMA_DW` (main) and `CALOPTIMA_DW_DEV` (dev) project objects. |
+| `ANALYTICS_ADMIN.PROJECTS` | Snowflake native dbt | Hosts `PAYER_DW` (main) and `PAYER_DW_DEV` (dev) project objects. |
 | `INGEST_DEMO` | Flat file demo | Pharmacy claims + medical claims tables. |
 | `GOVERNANCE_CA_DEMO` | Governance setup | Masking policy definitions, row access policy, `PHI_FULL_ACCESS` UDF. |
 | `zFACETS_DEV_CLONE` | Clone of `FACETS_DEV` | Governance demo (classification, masking, row access). Single `z`. |
@@ -632,13 +632,13 @@ FACETS_INCREMENTAL_TASK   (FACETS_BRONZE.UTILS, 15 min schedule)
    Calls FACETS_INCREMENTAL_LOAD — synthetic CDC DML across 35 tables
         │
         ├─► DBT_REFRESH_TASK_DEV   (after PROVIDER_SCD2_STREAM_TASK_DEV)
-        │       EXECUTE DBT PROJECT CALOPTIMA_DW_DEV --target dev → FACETS_DEV
+        │       EXECUTE DBT PROJECT PAYER_DW_DEV --target dev → FACETS_DEV
         │
         ├─► DBT_REFRESH_TASK_QA    (after PROVIDER_SCD2_STREAM_TASK_QA)
-        │       EXECUTE DBT PROJECT CALOPTIMA_DW --target qa → FACETS_QA
+        │       EXECUTE DBT PROJECT PAYER_DW --target qa → FACETS_QA
         │
         └─► DBT_REFRESH_TASK_PROD  (after PROVIDER_SCD2_STREAM_TASK_PROD)
-                EXECUTE DBT PROJECT CALOPTIMA_DW --target prod → FACETS_PROD
+                EXECUTE DBT PROJECT PAYER_DW --target prod → FACETS_PROD
 
 PROVIDER_SCD2_STREAM_TASK_DEV   (triggered: fires when PRPR_PROV_CHANGE_STREAM has data)
    Calls SP_PROVIDER_SCD2_STREAM_REFRESH → writes FACETS_DEV.SILVER.PROVIDER_SCD2_VIA_STREAM
@@ -662,10 +662,10 @@ All tasks and alerts can be found in `FACETS_BRONZE.UTILS` (except `MEMBER_DQ_AL
 
 ## 8. dbt Project Structure
 
-**Location:** `caloptima_dw/`
+**Location:** `payer_dw/`
 
 ```
-caloptima_dw/
+payer_dw/
 ├── dbt_project.yml        Materialization rules + schema names per layer
 ├── profiles.yml           Three targets: dev → FACETS_DEV, qa → FACETS_QA, prod → FACETS_PROD
 ├── packages.yml           dbt package dependencies

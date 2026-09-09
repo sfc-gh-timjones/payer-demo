@@ -1,5 +1,5 @@
 -- =============================================================
--- CalOptima Agent Demo - Step 1: Create AGENTS schema
+-- Payer Agent Demo - Step 1: Create AGENTS schema
 -- Target: FACETS_PROD.AGENTS
 -- =============================================================
 

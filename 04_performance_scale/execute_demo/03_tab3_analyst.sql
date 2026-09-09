@@ -3,9 +3,9 @@
 -- Analytics Innovator ad-hoc queries on a Medium warehouse.
 -- =============================================================================
 
-USE ROLE CALOPTIMA_ANALYST_ROLE;
+USE ROLE PAYER_ANALYST_ROLE;
 USE SECONDARY ROLES NONE;
-USE WAREHOUSE CALOPTIMA_ANALYST_WH;
+USE WAREHOUSE PAYER_ANALYST_WH;
 USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF100;
 
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;

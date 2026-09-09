@@ -13,7 +13,7 @@
 --   5. PROVIDER_SCD2_STREAM_TASK_DEV   (task, triggered when Bronze changes)
 --
 -- WHAT IT DOES NOT REBUILD:
---   - dbt project objects (CALOPTIMA_DW / CALOPTIMA_DW_DEV)
+--   - dbt project objects (PAYER_DW / PAYER_DW_DEV)
 --   - dbt snapshot tables (PROVIDER_SNAPSHOT) — see reset_scd2_tables.md
 --   - DBT_REFRESH_TASK_* chain (managed by CI / silver_refresh_tasks.sql)
 --   - FACETS_INCREMENTAL_TASK (managed by Openflow setup)

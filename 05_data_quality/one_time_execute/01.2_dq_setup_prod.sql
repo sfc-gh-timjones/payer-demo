@@ -1,6 +1,6 @@
 /*
 ================================================================================
-  CalOptima RFP 26-038 | Topic 9: Data Quality — Production Monitor
+  Payer RFP 26-038 | Topic 9: Data Quality — Production Monitor
   File: 01.2_dq_setup_prod.sql
   Purpose: Apply the same 9 data metric functions to the LIVE FACETS_DEV data
            (not the demo clone). No alert, no demo sprocs — monitoring only.

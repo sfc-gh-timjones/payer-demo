@@ -5,7 +5,7 @@
 -- CREATE NOTIFICATION INTEGRATION IF NOT EXISTS CDC_EMAIL_NOTIF
 --     TYPE = EMAIL
 --     ENABLED = TRUE
---     ALLOWED_RECIPIENTS = ('cdc-alerts@caloptima.org', 't.jones@snowflake.com');
+--     ALLOWED_RECIPIENTS = ('cdc-alerts@payer.org', 't.jones@snowflake.com');
 
 -- Step 2: Create the alert
 CREATE OR REPLACE ALERT FACETS_BRONZE.UTILS.CDC_LATENCY_ALERT
@@ -22,7 +22,7 @@ CREATE OR REPLACE ALERT FACETS_BRONZE.UTILS.CDC_LATENCY_ALERT
     ))
     THEN CALL SYSTEM$SEND_EMAIL(
         'CDC_EMAIL_NOTIF',
-        'cdc-alerts@caloptima.org',
+        'cdc-alerts@payer.org',
         'ALERT: Facets CDC pipeline missed SLA',
         'FACETS_INCREMENTAL_TASK has not completed successfully in the last 20 minutes. '
         || 'Please check TASK_HISTORY in FACETS_BRONZE.UTILS.'

@@ -1,6 +1,6 @@
 -- =============================================================================
 -- FILE: database_schema_setup.sql
--- PURPOSE: Pre-build all databases and schemas required by the caloptima_dw
+-- PURPOSE: Pre-build all databases and schemas required by the payer_dw
 --          dbt project before running snow dbt execute.
 --
 --          Snowflake-native dbt projects do NOT create databases or schemas

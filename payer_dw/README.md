@@ -1,12 +1,12 @@
-# caloptima_dw
+# payer_dw
 
-dbt Core project for the CalOptima Health Facets CDC pipeline (RFP 26-038 demo).
+dbt Core project for the Payer Facets CDC pipeline.
 
 ## Architecture
 
 ```
 FACETS_BRONZE.RAW (Openflow CDC UPSERT)
-  └── caloptima_dw (this project)
+  └── payer_dw (this project)
         ├── staging/        → FACETS_DEV.STAGING   (views, 12 models)
         ├── intermediate/                           (ephemeral, compiled inline)
         ├── silver/         → FACETS_DEV.SILVER     (incremental merge, 4 models)

@@ -1,6 +1,6 @@
 -- =============================================================================
 -- FILE: 03_schema_access_demo.sql
--- PURPOSE: CalOptima RFP 26-038 | Topic 5 — Separation of Duties + REVOKE + Audit
+-- PURPOSE: Payer RFP 26-038 | Topic 5 — Separation of Duties + REVOKE + Audit
 --
 -- SETUP REFERENCES (01_governance_setup.sql):
 --   BA CREATE SCHEMA grant:  Section H (GRANT CREATE SCHEMA ON DATABASE zFACETS_DEV_CLONE)
@@ -145,7 +145,7 @@ ORDER BY query_count DESC;
 
 -- Talking points:
 -- • Every query captured — including 0-row results from row access policies
--- • CalOptima auditors query this directly — no log export pipeline needed
+-- • Payer auditors query this directly — no log export pipeline needed
 -- • HIPAA requires audit logs of all PHI access: Snowflake provides this natively
 -- • The REVOKE and "not authorized" error from Part 2 will appear here (after lag)
 

@@ -3,9 +3,9 @@
 -- Finance team standard reports on a Small warehouse.
 -- =============================================================================
 
-USE ROLE CALOPTIMA_FINANCE_ROLE;
+USE ROLE PAYER_FINANCE_ROLE;
 USE SECONDARY ROLES NONE;
-USE WAREHOUSE CALOPTIMA_FINANCE_WH;
+USE WAREHOUSE PAYER_FINANCE_WH;
 USE SCHEMA SNOWFLAKE_SAMPLE_DATA.TPCH_SF100;
 
 ALTER SESSION SET USE_CACHED_RESULT = FALSE;

@@ -1,6 +1,6 @@
 /*
 ================================================================================
-  CalOptima RFP 26-038 | Topic 9: Data Quality Demo
+  Payer RFP 26-038 | Topic 9: Data Quality Demo
   File: 02_dq_demo.sql
   Purpose: Live demo walkthrough — run blocks sequentially during presentation.
            Shows: DMF configuration, clean baseline, violation injection,

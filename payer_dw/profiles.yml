@@ -1,4 +1,4 @@
-caloptima_dw:
+payer_dw:
   target: dev
   outputs:
     dev:

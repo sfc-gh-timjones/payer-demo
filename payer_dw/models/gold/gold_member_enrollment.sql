@@ -9,7 +9,7 @@
   Gold scaffold — Phase 1 architecture placeholder.
 
   Phase 2 implementation:
-  gold_member_enrollment will produce one row per active CalOptima member by
+  gold_member_enrollment will produce one row per active plan member by
   joining SILVER.MEMBER with active SILVER.ELIGIBILITY spans. The model will
   expose: enrollment status, plan type (COMM / D-SNP / Medi-Cal), PCP
   attribution, Medi-Cal BIC, and effective/termination dates. It will serve as

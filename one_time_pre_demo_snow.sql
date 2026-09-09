@@ -22,19 +22,19 @@ USE WAREHOUSE WH_XS;
 /*=============================================================================
   1. DEPLOY DATABASE + GIT REPO
      Creates a lightweight temp database to hold the git repository object.
-     Points at the caloptima GitHub repo, branch: dev.
+     Points at the payer-demo GitHub repo, branch: dev.
 =============================================================================*/
 
 CREATE DATABASE IF NOT EXISTS DEMO_DEPLOY;
 CREATE SCHEMA  IF NOT EXISTS DEMO_DEPLOY.GIT;
 
-CREATE GIT REPOSITORY IF NOT EXISTS DEMO_DEPLOY.GIT.CALOPTIMA_REPO
+CREATE GIT REPOSITORY IF NOT EXISTS DEMO_DEPLOY.GIT.PAYER_REPO
     API_INTEGRATION = MY_GIT_API_INTEGRATION
     GIT_CREDENTIALS = POLICY_SETTINGS.POLICY_SCHEMA.MY_GIT_SECRET
     ORIGIN          = 'https://github.com/sfc-gh-timjones/caloptima';
 
 -- Pull latest commits from GitHub (run this each time to get the newest scripts)
-ALTER GIT REPOSITORY DEMO_DEPLOY.GIT.CALOPTIMA_REPO FETCH;
+ALTER GIT REPOSITORY DEMO_DEPLOY.GIT.PAYER_REPO FETCH;
 
 
 /*=============================================================================
@@ -43,7 +43,7 @@ ALTER GIT REPOSITORY DEMO_DEPLOY.GIT.CALOPTIMA_REPO FETCH;
 =============================================================================*/
 
 EXECUTE IMMEDIATE FROM
-    @DEMO_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/01_openflow/execute_pre_demo/00_OF_schema_revert_snow.sql;
+    @DEMO_DEPLOY.GIT.PAYER_REPO/branches/dev/01_openflow/execute_pre_demo/00_OF_schema_revert_snow.sql;
 
 
 
@@ -62,23 +62,23 @@ CALL FACETS_BRONZE.UTILS.OPENFLOW_SCHEMA_REVERT_MSSQL(
 
 /*=============================================================================
   4. DBT — rebuild PROVIDER_OFFICE_HOURS with clean data
-     Bad code is deployed to CALOPTIMA_DW_DEV but NOT yet run.
+     Bad code is deployed to PAYER_DW_DEV but NOT yet run.
      This overwrites the Silver table directly so demo Step 1 shows clean data.
      After demo Steps 3-6 (Time Travel + SWAP), the table is clean again automatically.
 
 DEMO-DAY SEQUENCE REMINDER:
 
 1. Bad code already committed to dev branch (provider_office_hours.sql).
-2. Push to dev triggers CI: deploys CALOPTIMA_DW_DEV (bad code), skips running provider_office_hours.
+2. Push to dev triggers CI: deploys PAYER_DW_DEV (bad code), skips running provider_office_hours.
 3. Run this script LAST — after CI completes — so the Silver table starts clean.
 4. Demo Step 1: confirm clean data (5 weekdays MON–FRI, no 'Bad Data Inserted Here').
-5. Demo Step 2: EXECUTE DBT PROJECT ... CALOPTIMA_DW_DEV — corrupts ~1,981 rows.
+5. Demo Step 2: EXECUTE DBT PROJECT ... PAYER_DW_DEV — corrupts ~1,981 rows.
 6. Demo Steps 3-6: Time Travel clone → verify → SWAP atomically.
 7. After the SWAP, data is clean. Pre-reset needed again before the NEXT demo session.
 =============================================================================*/
 
 EXECUTE IMMEDIATE FROM
-    @DEMO_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/02_dbt/execute_pre_demo/reset_office_hours_clean.sql;
+    @DEMO_DEPLOY.GIT.PAYER_REPO/branches/dev/02_dbt/execute_pre_demo/reset_office_hours_clean.sql;
 
 
 /*=============================================================================
@@ -87,14 +87,14 @@ EXECUTE IMMEDIATE FROM
 =============================================================================*/
 
 EXECUTE IMMEDIATE FROM
-    @DEMO_DEPLOY.GIT.CALOPTIMA_REPO/branches/dev/06_governance_demo/execute_pre_demo/01_restore_ba_access.sql;
+    @DEMO_DEPLOY.GIT.PAYER_REPO/branches/dev/06_governance_demo/execute_pre_demo/01_restore_ba_access.sql;
 
 
 /*=============================================================================
   DONE!
 =============================================================================*/
 
-SELECT 'CalOptima demo environment reset and ready.' AS status, getdate() as last_run_time;
+SELECT 'Payer demo environment reset and ready.' AS status, getdate() as last_run_time;
 
 
 /*=============================================================================

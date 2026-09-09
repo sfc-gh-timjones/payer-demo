@@ -14,7 +14,7 @@ USE SCHEMA TPCH_SF100;
 -- "One config change — Snowflake handles the rest automatically."
 -- =============================================================================
 
-CREATE OR REPLACE WAREHOUSE CALOPTIMA_CONCURRENCY_WH
+CREATE OR REPLACE WAREHOUSE PAYER_CONCURRENCY_WH
     WAREHOUSE_SIZE    = MEDIUM
     GENERATION = '2'
     MIN_CLUSTER_COUNT = 1           -- idles at 1 cluster at rest (cost-efficient)
@@ -26,7 +26,7 @@ CREATE OR REPLACE WAREHOUSE CALOPTIMA_CONCURRENCY_WH
 
 USE WAREHOUSE WH_XS; 
 
-SHOW WAREHOUSES LIKE 'CALOPTIMA_CONCURRENCY_WH';
+SHOW WAREHOUSES LIKE 'PAYER_CONCURRENCY_WH';
 -- Key columns: min_cluster_count=1, max_cluster_count=4, scaling_policy=STANDARD
 -- No hardware provisioning. No capacity planning. No on-call engineer.
 
@@ -41,4 +41,4 @@ SHOW PARAMETERS LIKE 'USE_CACHED_RESULT';
 
 CALL SNOWFLAKE_SAMPLE_DATA2.TPCH_SF100.spawn_concurrent_users(100);
 
-SHOW WAREHOUSES LIKE 'CALOPTIMA_CONCURRENCY_WH';
+SHOW WAREHOUSES LIKE 'PAYER_CONCURRENCY_WH';

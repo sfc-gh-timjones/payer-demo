@@ -2,38 +2,38 @@
 
 ## The Mental Model
 
-There is **one codebase** (the `caloptima_dw/` folder in this git repo) and **two deployed Snowflake project objects**. The project objects are just file stores — frozen snapshots of whatever was last uploaded via `snow dbt deploy`. They have no knowledge of git branches.
+There is **one codebase** (the `payer_dw/` folder in this git repo) and **two deployed Snowflake project objects**. The project objects are just file stores — frozen snapshots of whatever was last uploaded via `snow dbt deploy`. They have no knowledge of git branches.
 
 The **CI workflow** is what enforces which branch's code lands in which object:
 
 | Git Event | Deploys To | Runs Against |
 |---|---|---|
-| `push → dev` | `CALOPTIMA_DW_DEV` | `FACETS_DEV` (`--target dev`) |
-| `merge → main` (PR) | `CALOPTIMA_DW` | `FACETS_QA` + `FACETS_PROD` |
+| `push → dev` | `PAYER_DW_DEV` | `FACETS_DEV` (`--target dev`) |
+| `merge → main` (PR) | `PAYER_DW` | `FACETS_QA` + `FACETS_PROD` |
 
-So saying "CALOPTIMA_DW_DEV contains dev branch code" really means: the last time someone pushed to dev, CI deployed that code into it. There is no live link to git.
+So saying "PAYER_DW_DEV contains dev branch code" really means: the last time someone pushed to dev, CI deployed that code into it. There is no live link to git.
 
 ---
 
 ## The Full Picture
 
 ```
-caloptima_dw/  (one codebase, one git repo)
+payer_dw/  (one codebase, one git repo)
        │
-       ├─ push → dev ──────────► snow dbt deploy CALOPTIMA_DW_DEV
+       ├─ push → dev ──────────► snow dbt deploy PAYER_DW_DEV
        │                               │
        │                               └─► DBT_REFRESH_TASK_DEV
-       │                                       EXECUTE DBT PROJECT CALOPTIMA_DW_DEV
+       │                                       EXECUTE DBT PROJECT PAYER_DW_DEV
        │                                       --target dev → FACETS_DEV
        │
-       └─ merge → main ────────► snow dbt deploy CALOPTIMA_DW
+       └─ merge → main ────────► snow dbt deploy PAYER_DW
                                        │
                                        ├─► DBT_REFRESH_TASK_QA
-                                       │       EXECUTE DBT PROJECT CALOPTIMA_DW
+                                       │       EXECUTE DBT PROJECT PAYER_DW
                                        │       --target qa → FACETS_QA
                                        │
                                        └─► DBT_REFRESH_TASK_PROD
-                                               EXECUTE DBT PROJECT CALOPTIMA_DW
+                                               EXECUTE DBT PROJECT PAYER_DW
                                                --target prod → FACETS_PROD
 ```
 
@@ -49,7 +49,7 @@ The `--target` flag controls which **database** dbt writes to. The code is the s
 | `qa` | `FACETS_QA` | Pre-merge validation gate |
 | `prod` | `FACETS_PROD` | Stable, main branch code only |
 
-These are defined in `caloptima_dw/profiles.yml`.
+These are defined in `payer_dw/profiles.yml`.
 
 ---
 
@@ -59,9 +59,9 @@ Every time Openflow loads new CDC data, the following chain fires automatically:
 
 ```
 FACETS_INCREMENTAL_TASK          ← Openflow CDC loads Bronze
-    → DBT_REFRESH_TASK_DEV       ← CALOPTIMA_DW_DEV → FACETS_DEV
-    → DBT_REFRESH_TASK_QA        ← CALOPTIMA_DW     → FACETS_QA
-    → DBT_REFRESH_TASK_PROD      ← CALOPTIMA_DW     → FACETS_PROD
+    → DBT_REFRESH_TASK_DEV       ← PAYER_DW_DEV → FACETS_DEV
+    → DBT_REFRESH_TASK_QA        ← PAYER_DW     → FACETS_QA
+    → DBT_REFRESH_TASK_PROD      ← PAYER_DW     → FACETS_PROD
     → PROVIDER_SCD2_STREAM_TASK  ← Stream/Task SCD2 for providers (when stream has data)
 ```
 
@@ -84,12 +84,12 @@ Both project objects are managed automatically by CI. Manual redeploy (e.g., aft
 
 ```bash
 # Redeploy dev object (from dev branch)
-cd caloptima_dw && snow dbt deploy caloptima_dw_dev \
+cd payer_dw && snow dbt deploy payer_dw_dev \
   --database ANALYTICS_ADMIN --schema PROJECTS
 
 # Redeploy stable object (from main branch)
-cd caloptima_dw && snow dbt deploy caloptima_dw \
+cd payer_dw && snow dbt deploy payer_dw \
   --database ANALYTICS_ADMIN --schema PROJECTS
 ```
 
-Or use the **workflow_dispatch** button in GitHub Actions (deploys `CALOPTIMA_DW_DEV` + runs dev build).
+Or use the **workflow_dispatch** button in GitHub Actions (deploys `PAYER_DW_DEV` + runs dev build).

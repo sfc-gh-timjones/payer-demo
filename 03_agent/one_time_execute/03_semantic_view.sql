@@ -1,6 +1,6 @@
 -- =============================================================
--- CalOptima Agent Demo - Step 3: Semantic View
--- FACETS_PROD.AGENTS.CALOPTIMA_MEMBER_SV
+-- Payer Agent Demo - Step 3: Semantic View
+-- FACETS_PROD.AGENTS.PAYER_MEMBER_SV
 -- Based on the flat MEMBER_ENROLLMENT view (1 row per member)
 -- =============================================================
 
@@ -12,7 +12,7 @@ USE SCHEMA FACETS_PROD.AGENTS;
 --           RIGHT side of AS = physical column or expression
 -- Single quotes inside VQR SQL strings must be escaped as ''
 
-CREATE OR REPLACE SEMANTIC VIEW FACETS_PROD.AGENTS.CALOPTIMA_MEMBER_SV
+CREATE OR REPLACE SEMANTIC VIEW FACETS_PROD.AGENTS.PAYER_MEMBER_SV
   TABLES (
     member_enrollment AS FACETS_PROD.AGENTS.MEMBER_ENROLLMENT
       PRIMARY KEY (MEME_ID)
@@ -46,9 +46,9 @@ CREATE OR REPLACE SEMANTIC VIEW FACETS_PROD.AGENTS.CALOPTIMA_MEMBER_SV
     member_enrollment.active_members   AS COUNT_IF(member_enrollment.MEMBER_STATUS = 'Active'),
     member_enrollment.members_with_pcp AS COUNT_IF(member_enrollment.ACTIVE_PCP_PRPR_ID IS NOT NULL)
   )
-  COMMENT = 'CalOptima member enrollment, plan assignment, and PCP attribution — Orange County, CA'
+  COMMENT = 'Payer member enrollment, plan assignment, and PCP attribution — Orange County, CA'
   AI_SQL_GENERATION
-    'CalOptima Health is a Medi-Cal managed care plan serving Orange County, CA.
+    'Payer Health is a Medi-Cal managed care plan serving Orange County, CA.
      This semantic view covers member enrollment at member grain (one row per member).
      Plan types: HMO (Health Maintenance Organization), DSNP (Dual Special Needs Plan),
      MEDICAID, PPO (Preferred Provider Organization), EPO.

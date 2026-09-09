@@ -1,12 +1,12 @@
-# CalOptima Member Enrollment Agent — Query Reference
+# Payer Member Enrollment Agent — Query Reference
 
 ## Objects Built
 
 | Object | Location | Description |
 |---|---|---|
 | `MEMBER_ENROLLMENT` | `FACETS_PROD.AGENTS` | Flat view: 1 row per member (MEMBER + ELIGIBILITY deduped + PROVIDER) |
-| `CALOPTIMA_MEMBER_SV` | `FACETS_PROD.AGENTS` | Semantic view over MEMBER_ENROLLMENT |
-| `CALOPTIMA_AGENT` | `FACETS_PROD.AGENTS` | Cortex Agent with Cortex Analyst tool |
+| `PAYER_MEMBER_SV` | `FACETS_PROD.AGENTS` | Semantic view over MEMBER_ENROLLMENT |
+| `PAYER_AGENT` | `FACETS_PROD.AGENTS` | Cortex Agent with Cortex Analyst tool |
 
 ---
 

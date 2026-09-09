@@ -1,6 +1,6 @@
 -- =============================================================================
 -- FILE: 02_discovery_demo.sql
--- PURPOSE: CalOptima RFP 26-038 | Topic 4 + Topic 5 — Live Demo
+-- PURPOSE: Payer RFP 26-038 | Topic 4 + Topic 5 — Live Demo
 --          Walk-through: Tags → Column-Level Masking → Row-Level Security
 --
 -- DATABASE ARCHITECTURE:
@@ -156,7 +156,7 @@ ORDER BY ROLE, VISIBLE_PLAN_TYPE;
 /*
 
 -- Plan types:
---   COMM    → Commercial managed care (CalOptima Access HMO/PPO)
+--   COMM    → Commercial managed care (Payer Access HMO/PPO)
 --   DSNP    → Dual Special Needs Plan (Medicare + Medi-Cal dual-eligible)
 --   MEDCAID → Medi-Cal / California Medicaid (heightened privacy — reveals low-income status)
 

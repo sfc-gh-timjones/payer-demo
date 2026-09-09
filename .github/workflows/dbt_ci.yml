@@ -1,20 +1,24 @@
 name: dbt CI/CD — payer_dw
 
-# push → dev:          deploy PAYER_DW_DEV + build --target dev  (dev-isolated)
-# pull_request → main: deploy PAYER_DW (stable) + dev + qa + prod (full gate)
-# workflow_dispatch:   manual deploy PAYER_DW_DEV + dev build
+# Promotion flow:
+#
+#   1. push → dev       Deploy PAYER_DW_DEV + dbt build (dev validation)
+#                       ↓
+#   2. Open PR → main   Code review required (branch protection rule, not this workflow)
+#                       ↓ PR approved and merged
+#   3. push → main      Deploy PAYER_DW (stable) + dbt build (qa) — automatic
+#                       ↓ QA passes
+#   4. Manual approval  Reviewer approves via GitHub Environments UI
+#                       ↓ approved
+#   5. dbt build (prod) — runs only after explicit approval
 #
 # Two-project isolation:
-#   PAYER_DW_DEV  ← dev branch code  → DBT_REFRESH_TASK_DEV → FACETS_DEV
-#   PAYER_DW      ← main branch code → DBT_REFRESH_TASK_QA/PROD → FACETS_QA/PROD
+#   PAYER_DW_DEV  ← dev branch code  → validates against FACETS_DEV
+#   PAYER_DW      ← main branch code → promotes through FACETS_QA → FACETS_PROD
 
 on:
   push:
-    branches: [dev]
-    paths:
-      - 'payer_dw/**'
-  pull_request:
-    branches: [main]
+    branches: [dev, main]
     paths:
       - 'payer_dw/**'
   workflow_dispatch:
@@ -24,11 +28,17 @@ concurrency:
   group: dbt-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Shared connection setup (reused across jobs via composite or inline)
+# ─────────────────────────────────────────────────────────────────────────────
+
 jobs:
-  # ─── Job 1: always runs (push → dev, PR → main, manual) ─────────────────────
-  # Deploys and validates the dev project object (PAYER_DW_DEV).
-  deploy-and-dev:
-    name: Deploy PAYER_DW_DEV + dbt build (dev)
+
+  # ─── Job 1: push → dev only ──────────────────────────────────────────────
+  # Deploys PAYER_DW_DEV and validates dev code every time dev branch is pushed.
+  dev-build:
+    name: "[Dev] Deploy PAYER_DW_DEV + dbt build"
+    if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
 
     steps:
@@ -49,7 +59,7 @@ jobs:
           EOF
           chmod 0600 ~/.snowflake/config.toml
 
-      - name: Deploy dbt project — dev object (PAYER_DW_DEV)
+      - name: Deploy PAYER_DW_DEV
         run: |
           cd payer_dw && snow dbt deploy -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
@@ -61,12 +71,12 @@ jobs:
             --database ANALYTICS_ADMIN --schema PROJECTS \
             PAYER_DW_DEV build --target dev --exclude provider_office_hours
 
-  # ─── Job 2: PR to main only — deploys stable object + gates qa + prod ────────
-  # Independent job: deploys to PAYER_DW (stable/main) then runs qa + prod.
-  # Does NOT depend on Job 1 — the two jobs deploy to different project objects.
-  deploy-stable-qa-prod:
-    name: Deploy PAYER_DW + dbt build (qa + prod)
-    if: github.event_name == 'pull_request'
+  # ─── Job 2: push → main (after PR is merged) — QA ────────────────────────
+  # Automatically deploys PAYER_DW (stable/main code) and runs QA build.
+  # The code review gate happens in GitHub branch protection before this fires.
+  qa-build:
+    name: "[QA] Deploy PAYER_DW + dbt build"
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
@@ -87,7 +97,7 @@ jobs:
           EOF
           chmod 0600 ~/.snowflake/config.toml
 
-      - name: Deploy dbt project — stable object (PAYER_DW)
+      - name: Deploy PAYER_DW (stable)
         run: |
           cd payer_dw && snow dbt deploy -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
@@ -98,6 +108,34 @@ jobs:
           snow dbt execute -c ci \
             --database ANALYTICS_ADMIN --schema PROJECTS \
             PAYER_DW build --target qa
+
+  # ─── Job 3: prod — requires manual approval via GitHub Environment ────────
+  # Depends on qa-build passing. Blocked until a reviewer approves in the
+  # GitHub Actions UI (Settings → Environments → production → required reviewers).
+  prod-build:
+    name: "[Prod] dbt build — requires approval"
+    if: github.ref == 'refs/heads/main'
+    needs: qa-build
+    runs-on: ubuntu-latest
+    environment: production   # ← pauses here; sends approval notification to reviewers
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Snowflake-Labs/snowflake-cli-action@v2
+
+      - name: Configure Snowflake connection
+        run: |
+          mkdir -p ~/.snowflake
+          cat > ~/.snowflake/config.toml << EOF
+          [connections.ci]
+          account = "${{ secrets.SNOWFLAKE_ACCOUNT }}"
+          user = "${{ secrets.SNOWFLAKE_USER }}"
+          authenticator = "programmatic_access_token"
+          token = "${{ secrets.SNOWFLAKE_PAT }}"
+          role = "ACCOUNTADMIN"
+          warehouse = "WH_SMALL"
+          EOF
+          chmod 0600 ~/.snowflake/config.toml
 
       - name: dbt build — prod (FACETS_PROD)
         run: |

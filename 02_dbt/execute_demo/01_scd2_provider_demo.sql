@@ -3,7 +3,10 @@
 -- =============================================================================
 
 
-/*QUERY ENTIRE TABLES*/
+/*QUERY ENTIRE TABLES
+
+Comment 5:21pm
+*/
 
 -- DBT Snapshots
 WITH PROV_WITH_HISTORY AS (

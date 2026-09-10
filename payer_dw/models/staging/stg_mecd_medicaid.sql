@@ -1,6 +1,7 @@
 WITH source AS (
     SELECT * FROM {{ source('raw', 'CMC_MECD_MEDICAID') }}
 )
+/*11:00pm*/
 SELECT
     MEME_ID,
     MECD_AID_CD,

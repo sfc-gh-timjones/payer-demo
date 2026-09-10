@@ -1,7 +1,7 @@
 WITH source AS (
     SELECT * FROM {{ source('raw', 'CMC_AGAG_AGREEMENT') }}
 )
-/*comment 5:26pm*/
+/*comment 1100pm*/
 SELECT
     AGAG_ID,
     AGAG_DESC,
